@@ -4,20 +4,11 @@ import random
 import openai
 import pandas as pd
 from tqdm import tqdm
+import subprocess
 
-from llm import get_response_from_llm, extract_json_between_markers
-
-# Load the data chunks from 'web_data/web_data.json'
-def load_data_chunks(json_file_path):
-    """
-    Loads the web data from a JSON file.
-    """
-    if not os.path.exists(json_file_path):
-        print(f"The file {json_file_path} does not exist.")
-        return []
-    with open(json_file_path, 'r', encoding='utf-8') as json_file:
-        data_chunks = json.load(json_file)
-    return data_chunks
+from rag.web_scrape import load_data_chunks
+from rag.llm import get_response_from_llm, extract_json_between_markers
+from rag.command_embedding_hyde import load_commands, get_command_output
 
 # Prepare source documents
 def prepare_documents(data_chunks):
@@ -28,7 +19,7 @@ def prepare_documents(data_chunks):
     for chunk in data_chunks:
         documents.append({
             'text': chunk['chunk'],
-            'source': chunk['url']
+            'source': chunk.get('url', 'command')  # Use 'command' if 'url' is not present
         })
     return documents
 
@@ -150,8 +141,15 @@ Context: {context}
 
 # Main code to generate the synthetic dataset
 if __name__ == "__main__":
-    # Load data chunks
+    # Load data chunks from web data
     data_chunks = load_data_chunks('web_data/web_data.json')
+
+    # Load commands
+    commands = load_commands('commands.json')
+
+    # Convert commands into data chunks and extend data_chunks
+    command_chunks = [{'chunk': explanation, 'url': 'command', 'command': cmd} for cmd, explanation in commands.items()]
+    data_chunks.extend(command_chunks)
 
     # Prepare documents
     documents = prepare_documents(data_chunks)
@@ -171,7 +169,7 @@ if __name__ == "__main__":
 
     # Prepare the LLM client and model
     client = openai
-    model = 'gpt-4o-2024-08-06'  # Using a supported model from your function
+    model = 'gpt-4o-2024-08-06'  # Replace with your desired model
 
     for idx in tqdm(sampled_indices):
         # Get start and end indices for context
@@ -181,8 +179,18 @@ if __name__ == "__main__":
         # Get the context documents
         context_docs = documents[start_idx:end_idx]
 
-        # Concatenate their 'text' fields to form the context
-        context = ' '.join([doc['text'] for doc in context_docs])
+        # Build context, executing commands if necessary
+        context = ''
+        for doc in context_docs:
+            text = doc['text']
+            if doc['source'] == 'command':
+                # Retrieve the command
+                command = next((chunk['command'] for chunk in data_chunks if chunk['chunk'] == doc['text']), None)
+                if command:
+                    # Execute the command and include its output
+                    command_output = get_command_output(command)
+                    text += f"\nCommand Output:\n{command_output}"
+            context += text + ' '
 
         # Source documents (for reference)
         source_docs = [doc['source'] for doc in context_docs]

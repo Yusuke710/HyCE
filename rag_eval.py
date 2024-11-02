@@ -2,13 +2,23 @@ import os
 import json
 import pandas as pd
 import numpy as np
-import openai  # Importing openai for the LLM client
+import openai
 from tqdm import tqdm
+import subprocess
+from sentence_transformers import SentenceTransformer, CrossEncoder
 
-from main import *
-from llm import get_response_from_llm, extract_json_between_markers
+from rag.web_scrape import load_data_chunks
+from rag.text_embedding import (
+    embed_corpus,
+    save_embeddings,
+    load_embeddings,
+    build_faiss_index,
+)
+from rag.llm import get_response_from_llm, extract_json_between_markers
+from rag_answer import search
+from rag.command_embedding_hyde import load_commands, get_command_output
 
-# Define the functions for generating RAG answers and evaluating them
+# Modify the function for generating RAG answers to include command execution
 def generate_rag_answer(question, corpus, corpus_embeddings, bi_encoder, cross_encoder, index, client, model):
     # Retrieve relevant documents using the provided search function
     top_chunks = search(
@@ -21,10 +31,18 @@ def generate_rag_answer(question, corpus, corpus_embeddings, bi_encoder, cross_e
         top_k=5
     )
 
-    # Prepare the context from top_chunks
+    # Prepare the context from top_chunks, including command execution if applicable
     context = ""
     for i, chunk_info in enumerate(top_chunks):
-        context += f"Document {i+1}:\n{chunk_info['chunk']}\n\n"
+        if chunk_info.get('url') == 'command':
+            # This is a command explanation; execute the command
+            command = chunk_info['command']
+            output = get_command_output(command)
+            context += f"Command {i+1} Explanation:\n{chunk_info['chunk']}\n"
+            context += f"Command Output:\n{output}\n\n"
+        else:
+            # This is a regular document
+            context += f"Document {i+1}:\n{chunk_info['chunk']}\n\n"
 
     # Prepare the system message and user message
     system_message = "You are an assistant that provides accurate and concise answers based on the provided documents."
@@ -67,13 +85,16 @@ Output your reasoning for the ratings in the evaluation field and provide your s
     "Summarization Quality": 0 or 1
   }}
 }}
+```
+
 Now, here are the inputs:
 
 Question: {question}
 
 Generated Answer: {generated_answer}
 
-Reference Answer: {true_answer} """
+Reference Answer: {true_answer}
+"""
 
     system_message = "You are a fair evaluator language model."
     try:
@@ -108,7 +129,12 @@ if __name__ == "__main__":
     eval_dataset = pd.read_csv("evaluation_dataset.csv")
 
     # Load the corpus
-    corpus = load_web_data('web_data/web_data.json')
+    corpus = load_data_chunks('web_data/web_data.json')
+
+    # Load commands and add them to the corpus
+    commands = load_commands('commands.json')
+    command_chunks = [{'chunk': explanation, 'url': 'command', 'command': cmd} for cmd, explanation in commands.items()]
+    corpus.extend(command_chunks)
 
     if corpus:
         # Initialize models
@@ -116,7 +142,7 @@ if __name__ == "__main__":
         cross_encoder = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-12-v2')
 
         # Define the embeddings file path
-        embeddings_file = 'web_data/corpus_embeddings.npy'
+        embeddings_file = 'combined_corpus_embeddings.npy'
 
         # Check if embeddings file exists
         corpus_embeddings = load_embeddings(embeddings_file)
@@ -134,7 +160,7 @@ if __name__ == "__main__":
         openai.api_key = os.getenv('OPENAI_API_KEY')  # Ensure API key is set
 
         client = openai
-        model = 'gpt-4o-2024-08-06'  # Using a supported model from your function
+        model = 'gpt-4o-2024-08-06'  # Replace with your desired model
 
         # Initialize results list
         results = []
@@ -204,17 +230,17 @@ if __name__ == "__main__":
         print(f"Summarization Quality: {average_summarization:.2f} out of 1")
 
         # Count answers where all three criteria are scored as 1
-        low_score_count = results_df[
-            (results_df['Correctness'] == 1) & 
-            (results_df['Faithfulness'] == 1) & 
+        high_score_count = results_df[
+            (results_df['Correctness'] == 1) &
+            (results_df['Faithfulness'] == 1) &
             (results_df['Summarization Quality'] == 1)
         ].shape[0]
-        
+
         # Calculate the percentage
         total_count = results_df.shape[0]
-        low_score_percentage = (low_score_count / total_count) * 100 if total_count > 0 else 0
+        high_score_percentage = (high_score_count / total_count) * 100 if total_count > 0 else 0
 
-        print(f"\nNumber of answers with all scores as 1: {low_score_count}")
-        print(f"Percentage of such answers: {low_score_percentage:.2f}%")
+        print(f"\nNumber of answers with all scores as 1: {high_score_count}")
+        print(f"Percentage of such answers: {high_score_percentage:.2f}%")
     else:
         print("No data to process.")
