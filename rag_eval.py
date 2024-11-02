@@ -6,6 +6,7 @@ import openai  # Importing openai for the LLM client
 from tqdm import tqdm
 
 from main import *
+from llm import get_response_from_llm, extract_json_between_markers
 
 # Define the functions for generating RAG answers and evaluating them
 def generate_rag_answer(question, corpus, corpus_embeddings, bi_encoder, cross_encoder, index, client, model):
