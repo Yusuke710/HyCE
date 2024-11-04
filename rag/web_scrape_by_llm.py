@@ -37,6 +37,7 @@ def chunk_text_semantically(text):
     prompt = (
         "Please split the following text into semantically coherent chunks. "
         "Each chunk should represent a coherent idea or topic. "
+        "Omit the short part that is just a word that is not relevant to the topic."
         "Return the chunks as a JSON array of strings.\n\nText:\n" + text
     )
     # Set up client and model
@@ -63,9 +64,9 @@ def chunk_text_semantically(text):
         print(f"Error during semantic chunking: {e}")
         return []
 
-def save_web_data(url, output_dir='web_data'):
+def save_web_data(url, output_dir='artifacts'):
     """
-    Fetches the web page from the given URL, extracts the content from linked pages,
+    Fetches the web page from the given URL, extracts text from specific tags,
     and saves the data to a JSON file.
     Each page's content is chunked semantically using an LLM.
     """
@@ -95,10 +96,14 @@ def save_web_data(url, output_dir='web_data'):
                     link_response.raise_for_status()
                     link_soup = BeautifulSoup(link_response.content, 'html.parser')
 
-                    full_text = link_soup.get_text(separator='\n', strip=True)
-                    if estimate_token_count(full_text) > 6000:
-                        print(f"Content at {normalized_url} is too long, truncating.")
-                        full_text = full_text[:24000]  # Approximately 6000 tokens
+                    # Extract all paragraphs
+                    paragraphs = [p.get_text() for p in link_soup.find_all("p")]
+                    text_content = "\n".join(paragraphs)
+
+                    full_text = text_content.strip()
+                    #if estimate_token_count(full_text) > 6000:
+                    #    print(f"Content at {normalized_url} is too long, truncating.")
+                    #    full_text = full_text[:24000]  # Approximately 6000 tokens
 
                     chunks = chunk_text_semantically(full_text)
                     if chunks:
@@ -114,15 +119,12 @@ def save_web_data(url, output_dir='web_data'):
                 except requests.RequestException as e:
                     print(f'Failed to fetch {normalized_url}: {e}')
 
-        # Optional: Limit the number of URLs processed for testing purposes
-        # if len(visited_urls) >= 5:
-        #     break
-
     json_file_path = os.path.join(output_dir, 'web_data.json')
     with open(json_file_path, 'w', encoding='utf-8') as json_file:
         json.dump(data, json_file, indent=4, ensure_ascii=False)
 
     print(f'All data saved to {json_file_path}')
+
 
 def load_data_chunks(json_file_path):
     """
