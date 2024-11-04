@@ -85,7 +85,7 @@ if __name__ == '__main__':
     commands_file = 'commands.json'
     COMMAND_EXPLANATIONS = load_commands(commands_file)
 
-    embeddings_file = 'command_explanations_embeddings.npy'
+    embeddings_file = os.path.join('artifacts', 'command_explanations_embeddings.npy')
 
     # Step 1: Embed explanations and save to a file if not already done
     if os.path.exists(embeddings_file):

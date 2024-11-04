@@ -1,0 +1,6 @@
+{
+    "id": "The 'id' command displays the user's ID, primary group ID, and any groups they belong to.",
+    "groups": "The 'groups' command lists all groups that the current user is part of.",
+    "ls": "The 'ls' command lists the contents of the specified directory, showing files and folders. By default, it shows the contents of the current directory. Options like '-l' provide detailed information, and '-a' includes hidden files.",
+    "pwd": "The 'pwd' command displays the full path of the current working directory, helping you understand your current location in the file system."
+}
