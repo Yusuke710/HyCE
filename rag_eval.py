@@ -7,7 +7,7 @@ from tqdm import tqdm
 import subprocess
 from sentence_transformers import SentenceTransformer, CrossEncoder
 
-from rag.web_scrape import load_data_chunks
+from rag.web_scrape_by_tag import load_data_chunks
 from rag.text_embedding import (
     embed_corpus,
     save_embeddings,
@@ -15,50 +15,8 @@ from rag.text_embedding import (
     build_faiss_index,
 )
 from rag.llm import get_response_from_llm, extract_json_between_markers
-from rag_answer import search
-from rag.command_embedding_hyde import load_commands, get_command_output
-
-# Modify the function for generating RAG answers to include command execution
-def generate_rag_answer(question, corpus, corpus_embeddings, bi_encoder, cross_encoder, index, client, model):
-    # Retrieve relevant documents using the provided search function
-    top_chunks = search(
-        question,
-        corpus,
-        corpus_embeddings,
-        bi_encoder,
-        cross_encoder,
-        index,
-        top_k=5
-    )
-
-    # Prepare the context from top_chunks, including command execution if applicable
-    context = ""
-    for i, chunk_info in enumerate(top_chunks):
-        if chunk_info.get('url') == 'command':
-            # This is a command explanation; execute the command
-            command = chunk_info['command']
-            output = get_command_output(command)
-            context += f"Command {i+1} Explanation:\n{chunk_info['chunk']}\n"
-            context += f"Command Output:\n{output}\n\n"
-        else:
-            # This is a regular document
-            context += f"Document {i+1}:\n{chunk_info['chunk']}\n\n"
-
-    # Prepare the system message and user message
-    system_message = "You are an assistant that provides accurate and concise answers based on the provided documents."
-    user_message = f"Answer the following question based on the provided documents.\n\nQuestion: {question}\n\nDocuments:\n{context}"
-
-    # Call the LLM using the provided function
-    content, _ = get_response_from_llm(
-        msg=user_message,
-        client=client,
-        model=model,
-        system_message=system_message,
-        print_debug=False
-    )
-
-    # Return the generated answer
-    return content
+from rag_answer import generate_rag_answer
+from command_embedding_hyde import load_commands
 
 def evaluate_answer(question, generated_answer, true_answer, client, model):
     evaluation_prompt = f"""
@@ -126,10 +84,11 @@ Reference Answer: {true_answer}
 # Main evaluation code
 if __name__ == "__main__":
     # Load the synthetic evaluation dataset
-    eval_dataset = pd.read_csv("evaluation_dataset.csv")
+    
+    eval_dataset = pd.read_csv(os.path.join("artifacts", "evaluation_dataset.csv"))
 
     # Load the corpus
-    corpus = load_data_chunks('web_data/web_data.json')
+    corpus = load_data_chunks(os.path.join("artifacts", "web_data.json"))
 
     # Load commands and add them to the corpus
     commands = load_commands('commands.json')
@@ -142,10 +101,14 @@ if __name__ == "__main__":
         cross_encoder = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-12-v2')
 
         # Define the embeddings file path
-        embeddings_file = 'combined_corpus_embeddings.npy'
+        embeddings_file = os.path.join("artifacts",'combined_corpus_embeddings.npy')
 
         # Check if embeddings file exists
         corpus_embeddings = load_embeddings(embeddings_file)
+
+        if corpus_embeddings is not None and len(corpus_embeddings) != len(corpus):
+            print("Mismatch between corpus and corpus_embeddings lengths")
+            corpus_embeddings = None
 
         if corpus_embeddings is None:
             # Embed the corpus
@@ -170,6 +133,7 @@ if __name__ == "__main__":
         for idx, row in tqdm(eval_dataset.iterrows(), total=eval_dataset.shape[0]):
             question = row['question']
             true_answer = row['answer']
+            context = row['context']
 
             # Generate an answer using the RAG system
             generated_answer = generate_rag_answer(
@@ -199,6 +163,7 @@ if __name__ == "__main__":
                 summarization_score = evaluation_result['scores'].get('Summarization Quality', None)
 
                 results.append({
+                    'context': context,
                     'question': question,
                     'true_answer': true_answer,
                     'generated_answer': generated_answer,
@@ -209,7 +174,7 @@ if __name__ == "__main__":
                 })
 
         # Save results to a JSON file
-        with open('rag_evaluation_results.json', 'w') as f:
+        with open(os.path.join('artifacts', 'rag_evaluation_results.json'), 'w') as f:
             json.dump(results, f, indent=4)
 
         # Load results into a DataFrame for analysis
@@ -217,7 +182,7 @@ if __name__ == "__main__":
 
         # Display individual results
         print("\nIndividual Results:")
-        print(results_df[['question', 'true_answer', 'generated_answer', 'Correctness', 'Faithfulness', 'Summarization Quality']])
+        print(results_df[['context', 'question', 'true_answer', 'generated_answer', 'Correctness', 'Faithfulness', 'Summarization Quality']])
 
         # Calculate and display average scores
         average_correctness = results_df['Correctness'].mean()

@@ -9,7 +9,7 @@ import faiss
 import subprocess
 from sentence_transformers import SentenceTransformer, CrossEncoder
 
-from rag.web_scrape import load_data_chunks
+from rag.web_scrape_by_tag import load_data_chunks
 from rag.text_embedding import (
     embed_corpus,
     save_embeddings,
@@ -17,7 +17,7 @@ from rag.text_embedding import (
     build_faiss_index,
 )
 from rag.llm import get_response_from_llm
-from rag.command_embedding_hyde import load_commands, get_command_output
+from command_embedding_hyde import load_commands, get_command_output
 
 def search_with_faiss(query_embedding, index, top_k):
     """
@@ -35,7 +35,7 @@ def search(query, corpus, corpus_embeddings, bi_encoder, cross_encoder, index, t
     query_embedding = bi_encoder.encode(query, convert_to_tensor=True)
     query_embedding = query_embedding.unsqueeze(0)  # Add batch dimension
 
-    distances, indices = search_with_faiss(query_embedding, index, 100)
+    _, indices = search_with_faiss(query_embedding, index, 100)
 
     cross_inp = []
     cross_chunks = []
@@ -110,7 +110,7 @@ def generate_rag_answer(question, corpus, corpus_embeddings, bi_encoder, cross_e
 
 # Main code
 if __name__ == "__main__":
-    corpus = load_data_chunks('web_data/web_data.json')
+    corpus = load_data_chunks('artifacts/web_data.json')
     commands = load_commands('commands.json')
 
     # Convert commands to corpus format and append them to the corpus
@@ -124,9 +124,14 @@ if __name__ == "__main__":
         embeddings_file = 'combined_corpus_embeddings.npy'
         corpus_embeddings = load_embeddings(embeddings_file)
 
+        if corpus_embeddings is not None and len(corpus_embeddings) != len(corpus):
+            print("Mismatch between corpus and corpus_embeddings lengths")
+            corpus_embeddings = None
+        
         if corpus_embeddings is None:
             corpus_embeddings = embed_corpus(corpus, bi_encoder)
             save_embeddings(corpus_embeddings, embeddings_file)
+            assert len(corpus_embeddings) == len(corpus), "Mismatch between corpus and corpus_embeddings lengths"
 
         index = build_faiss_index(corpus_embeddings)
 

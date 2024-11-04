@@ -6,9 +6,9 @@ import pandas as pd
 from tqdm import tqdm
 import subprocess
 
-from rag.web_scrape import load_data_chunks
+from rag.web_scrape_by_tag import load_data_chunks
 from rag.llm import get_response_from_llm, extract_json_between_markers
-from rag.command_embedding_hyde import load_commands, get_command_output
+from command_embedding_hyde import load_commands, get_command_output
 
 # Prepare source documents
 def prepare_documents(data_chunks):
@@ -85,7 +85,7 @@ Your task is to evaluate the question based on the following criteria:
 
 1. **Groundedness**: The question can be answered unambiguously with the given context.
 
-2. **Relevance**: The question is useful and relevant to users interested in the context.
+2. **Relevance**: The question addresses a common, practical problem or concept that HPC users are likely to encountert given the context.
 
 3. **Standalone**: The question is understandable without additional context.
 
@@ -142,7 +142,7 @@ Context: {context}
 # Main code to generate the synthetic dataset
 if __name__ == "__main__":
     # Load data chunks from web data
-    data_chunks = load_data_chunks('web_data/web_data.json')
+    data_chunks = load_data_chunks(os.path.join("artifacts", "web_data.json"))
 
     # Load commands
     commands = load_commands('commands.json')
@@ -172,28 +172,22 @@ if __name__ == "__main__":
     model = 'gpt-4o-2024-08-06'  # Replace with your desired model
 
     for idx in tqdm(sampled_indices):
-        # Get start and end indices for context
-        start_idx = max(idx - 2, 0)
-        end_idx = min(idx + 3, num_docs)  # +3 because end index is exclusive
-
-        # Get the context documents
-        context_docs = documents[start_idx:end_idx]
-
-        # Build context, executing commands if necessary
-        context = ''
-        for doc in context_docs:
-            text = doc['text']
-            if doc['source'] == 'command':
-                # Retrieve the command
-                command = next((chunk['command'] for chunk in data_chunks if chunk['chunk'] == doc['text']), None)
-                if command:
-                    # Execute the command and include its output
-                    command_output = get_command_output(command)
-                    text += f"\nCommand Output:\n{command_output}"
-            context += text + ' '
+        # Get the context document
+        context_doc = documents[idx]
+        
+        # Build context, executing command if necessary
+        text = context_doc['text']
+        context = text
+        if context_doc['source'] == 'command':
+            # Retrieve the command
+            command = next((chunk['command'] for chunk in data_chunks if chunk['chunk'] == text), None)
+            if command:
+                # Execute the command and include its output
+                command_output = get_command_output(command)
+                context += f"\nCommand Output:\n{command_output}"
 
         # Source documents (for reference)
-        source_docs = [doc['source'] for doc in context_docs]
+        source_docs = context_doc['source']
 
         # Generate QA pair
         question, answer = generate_qa_pair(context, client, model)
@@ -241,5 +235,5 @@ if __name__ == "__main__":
 
     # Save the evaluation dataset
     eval_dataset = generated_questions.reset_index(drop=True)
-    eval_dataset.to_csv("evaluation_dataset.csv", index=False)
+    eval_dataset.to_csv(os.path.join('artifacts', 'evaluation_dataset.csv'), index=False)
     print("Synthetic evaluation dataset saved to 'evaluation_dataset.csv'")
