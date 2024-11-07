@@ -65,7 +65,7 @@ def search(query, corpus, corpus_embeddings, bi_encoder, cross_encoder, index, t
 
     return unique_chunks
 
-def generate_rag_answer(question, corpus, corpus_embeddings, bi_encoder, cross_encoder, index, client, model):
+def generate_rag_answer(question, corpus, corpus_embeddings, bi_encoder, cross_encoder, index, client, model, cot=False):
     """
     Generates an answer using the RAG system.
     """
@@ -100,7 +100,19 @@ def generate_rag_answer(question, corpus, corpus_embeddings, bi_encoder, cross_e
     
     # Prepare the system message and user message
     system_message = "You are an assistant that provides accurate and concise answers based on the provided documents."
-    user_message = f"Answer the following question based on the provided documents.\n\nQuestion: {question}\n\nDocuments:\n{context}"
+
+    if cot:
+        user_message = f"""Answer the following question by thinking through each step carefully before reaching a conclusion. Follow these steps:
+        1. Identify relevant details from the provided documents.
+        2. Break down the information logically.
+        3. Connect the information to form a clear answer.
+
+        Question: {question}
+
+        Documents:
+        {context}"""
+    else:
+        user_message = f"Answer the following question based on the provided documents.\n\nQuestion: {question}\n\nDocuments:\n{context}"
 
     # Call the LLM using the provided function
     content, _ = get_response_from_llm(
