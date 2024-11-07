@@ -122,8 +122,14 @@ if __name__ == "__main__":
         # Prepare the LLM client and model
         openai.api_key = os.getenv('OPENAI_API_KEY')  # Ensure API key is set
 
-        client = openai
-        model = 'gpt-4o-2024-08-06'  # Replace with your desired model
+        client_answer = openai.OpenAI(
+            api_key=os.environ["OPENROUTER_API_KEY"],
+            base_url="https://openrouter.ai/api/v1",
+        )
+        model_answer = 'meta-llama/llama-3.1-405b-instruct'  # Replace with your desired model
+
+        client_eval = openai
+        model_eval = 'gpt-4o-2024-08-06'  # Replace with your desired model
 
         # Initialize results list
         results = []
@@ -143,8 +149,9 @@ if __name__ == "__main__":
                 bi_encoder,
                 cross_encoder,
                 index,
-                client,
-                model
+                client_answer,
+                model_answer,
+                cot=False
             )
 
             # Evaluate the generated answer
@@ -152,8 +159,8 @@ if __name__ == "__main__":
                 question,
                 generated_answer,
                 true_answer,
-                client,
-                model
+                client_eval,
+                model_eval
             )
 
             if evaluation_result:
