@@ -16,7 +16,7 @@ from rag.text_embedding import (
     load_embeddings,
     build_faiss_index,
 )
-from rag.llm import get_response_from_llm
+from rag.llm import get_response_from_llm, extract_json_between_markers
 from command_embedding_hyde import load_commands, get_command_output
 
 def search_with_faiss(query_embedding, index, top_k):
@@ -106,11 +106,22 @@ def generate_rag_answer(question, corpus, corpus_embeddings, bi_encoder, cross_e
         1. Identify relevant details from the provided documents.
         2. Break down the information logically.
         3. Connect the information to form a clear answer.
+        4. Summarize the answer in a concise manner.
 
         Question: {question}
 
         Documents:
-        {context}"""
+        {context} 
+
+        Provide your thinking for each step, and then provide the answer in the following **JSON format**:
+
+        ```json
+        {{
+            "reasons": <reasons>,
+            "answer": <answer>
+        }}
+        ```
+        """
     else:
         user_message = f"Answer the following question based on the provided documents.\n\nQuestion: {question}\n\nDocuments:\n{context}"
 
@@ -120,10 +131,18 @@ def generate_rag_answer(question, corpus, corpus_embeddings, bi_encoder, cross_e
         client=client,
         model=model,
         system_message=system_message,
-        print_debug=False
+        print_debug=True
     )
 
-    return content
+    if cot:
+        # Parse the JSON response to extract the path
+        response_json = extract_json_between_markers(content)
+        if response_json is None:
+            return None
+        answer = response_json.get("answer", [])
+        return answer
+    else:
+        return content
 
 # Main code
 if __name__ == "__main__":
@@ -172,7 +191,8 @@ if __name__ == "__main__":
                 cross_encoder,
                 index,
                 client,
-                model
+                model,
+                cot=True
             )
 
             print("\nAnswer:")
