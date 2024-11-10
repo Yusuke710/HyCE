@@ -21,15 +21,18 @@ def load_commands(file_path='commands.json'):
         commands = json.load(file)
     return commands
 
-def get_command_output(command):
+def get_command_output(command, timeout=10):
     """
-    Executes a shell command and returns its output as a string.
+    Executes a shell command and returns its output as a string, with a timeout.
     """
     try:
         result = subprocess.run(
-            command, shell=True, capture_output=True, text=True, check=True
+            command, shell=True, capture_output=True, text=True, check=True, timeout=timeout
         )
         return result.stdout.strip()
+    except subprocess.TimeoutExpired:
+        print(f"Command '{command}' timed out after {timeout} seconds.")
+        return ""
     except subprocess.CalledProcessError as e:
         print(f"Error executing {command}: {e}")
         return ""
