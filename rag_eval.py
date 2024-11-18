@@ -1,10 +1,8 @@
 import os
 import json
 import pandas as pd
-import numpy as np
 import openai
 from tqdm import tqdm
-import subprocess
 from sentence_transformers import SentenceTransformer, CrossEncoder
 
 from rag.web_scrape_by_tag import load_data_chunks
@@ -28,8 +26,6 @@ Your task is to evaluate the generated answer based on the following criteria:
 
 2. **Faithfulness**: The answer does not hallucinate or contradict any factual information presented in the context.
 
-3. **Summarization Quality**: The answer effectively summarizes the context to provide a concise response.
-
 For each criterion, provide a 'total rating' of **1** (meets the criterion) or **0** (does not meet the criterion).
 
 Output your reasoning for the ratings in the evaluation field and provide your scores in the following JSON format:
@@ -40,7 +36,6 @@ Output your reasoning for the ratings in the evaluation field and provide your s
   "scores": {{
     "Correctness": 0 or 1,
     "Faithfulness": 0 or 1,
-    "Summarization Quality": 0 or 1
   }}
 }}
 ```
@@ -97,8 +92,8 @@ if __name__ == "__main__":
 
     if corpus:
         # Initialize models
-        bi_encoder = SentenceTransformer('multi-qa-MiniLM-L6-cos-v1')
-        cross_encoder = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-12-v2')
+        bi_encoder = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2') # sentence-transformers/all-MiniLM-L6-v2 # 'multi-qa-MiniLM-L6-cos-v1'
+        cross_encoder = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-2-v2') # cross-encoder/ms-marco-MiniLM-L-12-v2 # 'cross-encoder/ms-marco-MiniLM-L-2-v2'
 
         # Define the embeddings file path
         embeddings_file = os.path.join("artifacts",'combined_corpus_embeddings.npy')
@@ -126,7 +121,7 @@ if __name__ == "__main__":
             api_key=os.environ["OPENROUTER_API_KEY"],
             base_url="https://openrouter.ai/api/v1",
         )
-        model_answer = 'meta-llama/llama-3.1-405b-instruct'  # Replace with your desired model
+        model_answer = 'meta-llama/llama-3.1-405b-instruct' # 'gpt-4o-2024-08-06' # Replace with your desired model
 
         client_eval = openai
         model_eval = 'gpt-4o-2024-08-06'  # Replace with your desired model
@@ -151,7 +146,8 @@ if __name__ == "__main__":
                 index,
                 client_answer,
                 model_answer,
-                cot=False
+                cot=False,
+                HyCE=False
             )
 
             # Evaluate the generated answer
@@ -167,7 +163,6 @@ if __name__ == "__main__":
                 # Extract individual scores
                 correctness_score = evaluation_result['scores'].get('Correctness', None)
                 faithfulness_score = evaluation_result['scores'].get('Faithfulness', None)
-                summarization_score = evaluation_result['scores'].get('Summarization Quality', None)
 
                 results.append({
                     'context': context,
@@ -177,7 +172,6 @@ if __name__ == "__main__":
                     'evaluation': evaluation_result['evaluation'],
                     'Correctness': correctness_score,
                     'Faithfulness': faithfulness_score,
-                    'Summarization Quality': summarization_score
                 })
 
         # Save results to a JSON file
@@ -189,23 +183,20 @@ if __name__ == "__main__":
 
         # Display individual results
         print("\nIndividual Results:")
-        print(results_df[['context', 'question', 'true_answer', 'generated_answer', 'Correctness', 'Faithfulness', 'Summarization Quality']])
+        print(results_df[['context', 'question', 'true_answer', 'generated_answer', 'Correctness', 'Faithfulness']])
 
         # Calculate and display average scores
         average_correctness = results_df['Correctness'].mean()
         average_faithfulness = results_df['Faithfulness'].mean()
-        average_summarization = results_df['Summarization Quality'].mean()
 
         print(f"\nAverage Scores:")
         print(f"Correctness: {average_correctness:.2f} out of 1")
         print(f"Faithfulness: {average_faithfulness:.2f} out of 1")
-        print(f"Summarization Quality: {average_summarization:.2f} out of 1")
 
         # Count answers where all three criteria are scored as 1
         high_score_count = results_df[
             (results_df['Correctness'] == 1) &
-            (results_df['Faithfulness'] == 1) &
-            (results_df['Summarization Quality'] == 1)
+            (results_df['Faithfulness'] == 1) 
         ].shape[0]
 
         # Calculate the percentage
