@@ -1,12 +1,8 @@
 # rag.py
 
 import os
-import json
-import torch
-import numpy as np
 import openai
 import faiss
-import subprocess
 from sentence_transformers import SentenceTransformer, CrossEncoder
 
 from rag.web_scrape_by_tag import load_data_chunks
@@ -18,6 +14,8 @@ from rag.text_embedding import (
 )
 from rag.llm import get_response_from_llm, extract_json_between_markers
 from command_embedding_hyde import load_commands, get_command_output
+
+MAX_NUM_TOKENS = 128000
 
 def search_with_faiss(query_embedding, index, top_k):
     """
@@ -65,7 +63,7 @@ def search(query, corpus, corpus_embeddings, bi_encoder, cross_encoder, index, t
 
     return unique_chunks
 
-def generate_rag_answer(question, corpus, corpus_embeddings, bi_encoder, cross_encoder, index, client, model, cot=False):
+def generate_rag_answer(question, corpus, corpus_embeddings, bi_encoder, cross_encoder, index, client, model, cot=False, HyCE=False):
     """
     Generates an answer using the RAG system.
     """
@@ -82,32 +80,31 @@ def generate_rag_answer(question, corpus, corpus_embeddings, bi_encoder, cross_e
 
     # Prepare the context from top_chunks, including command execution if applicable
     context = ""
-    for i, chunk_info in enumerate(top_chunks):
-        # If the chunk is a command explanation, execute the command
-        if chunk_info.get('url') == 'command':
-            command = chunk_info['command']
-            output = get_command_output(command)
-            context += f"Command {i+1} Explanation:\n{chunk_info['chunk']}\n"
-            context += f"Command Output:\n{output}\n\n"
-        else:
-            # Otherwise, add the web-scraped content
+    if HyCE:
+        for i, chunk_info in enumerate(top_chunks):
+            # If the chunk is a command explanation, execute the command
+            if chunk_info.get('url') == 'command':
+                command = chunk_info['command']
+                output = get_command_output(command)
+                context += f"Command {i+1} Explanation:\n{chunk_info['chunk']}\n"
+                context += f"Command Output:\n{output}\n\n"
+            else:
+                # Otherwise, add the web-scraped content
+                context += f"Document {i+1}:\n{chunk_info['chunk']}\n\n"
+    else:
+        for i, chunk_info in enumerate(top_chunks):
             context += f"Document {i+1}:\n{chunk_info['chunk']}\n\n"
 
     # Limit context length to avoid token limits
-    #max_chars = 4*MAX_NUM_TOKENS  # Approximate limit that works well with most models
-    #if len(context) > max_chars:
-    #    context = context[:max_chars]
+    max_chars = 4*MAX_NUM_TOKENS  # Approximate limit that works well with most models
+    if len(context) > max_chars:
+        context = context[:max_chars]
     
     # Prepare the system message and user message
     system_message = "You are an assistant that provides accurate and concise answers based on the provided documents."
 
     if cot:
-        user_message = f"""Answer the following question by thinking through each step carefully before reaching a conclusion. Follow these steps:
-        1. Identify relevant details from the provided documents.
-        2. Break down the information logically.
-        3. Connect the information to form a clear answer.
-        4. Summarize the answer in a concise manner.
-
+        user_message = f"""Answer the following question based on the provided documents.
         Question: {question}
 
         Documents:
@@ -131,7 +128,7 @@ def generate_rag_answer(question, corpus, corpus_embeddings, bi_encoder, cross_e
         client=client,
         model=model,
         system_message=system_message,
-        print_debug=True
+        print_debug=False
     )
 
     if cot:
