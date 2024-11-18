@@ -1,5 +1,4 @@
 import os
-import json
 import random
 import openai
 import pandas as pd
@@ -158,7 +157,7 @@ if __name__ == "__main__":
     outputs = []
 
     # Number of QA pairs to generate
-    N_GENERATIONS = 10  # Adjust as needed
+    N_GENERATIONS = 200  # Adjust as needed
 
     print(f"Generating {N_GENERATIONS} QA pairs...")
 
