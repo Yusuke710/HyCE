@@ -1,8 +1,6 @@
 {
     "id": "The 'id' command displays the user's ID, primary group ID, and any groups they belong to.",
     "groups": "The 'groups' command lists all groups that the current user is part of.",
-    "nvidia-smi": "The 'nvidia-smi' command provides information about NVIDIA GPU devices on the system in real-time. It displays details like GPU model, memory usage, utilization, temperature, and active processes, useful for monitoring GPU resources in HPC or machine learning setups.",
-    "df -h": "The 'df -h' command displays disk space usage for all file systems in a human-readable format, showing sizes with appropriate units (e.g., GB, MB). It is commonly used to monitor available disk space.",
     "history": "The 'history' command lists previously used commands in the current shell session. It is useful for recalling past commands or re-executing them.",
     "date": "The 'date' command displays or sets the system date and time. For example, 'date +\"%Y-%m-%d\"' formats the output as 'Year-Month-Day.'",
     "ls": "The 'ls' command lists the contents of the specified directory, showing files and folders. It provides various options like '-l' for detailed output and '-a' to include hidden files.",

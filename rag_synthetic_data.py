@@ -3,7 +3,6 @@ import random
 import openai
 import pandas as pd
 from tqdm import tqdm
-import subprocess
 
 from rag.web_scrape_by_tag import load_data_chunks
 from rag.llm import get_response_from_llm, extract_json_between_markers
@@ -162,9 +161,24 @@ if __name__ == "__main__":
     print(f"Generating {N_GENERATIONS} QA pairs...")
 
     num_docs = len(documents)
+    num_command_chunks = len(command_chunks)
 
-    # Randomly sample indices
-    sampled_indices = random.sample(range(num_docs), min(N_GENERATIONS, num_docs))
+    # Calculate the starting index of command_chunks in data_chunks
+    command_start_index = len(data_chunks) - num_command_chunks
+
+    # Get indices of command_chunks
+    command_indices = list(range(command_start_index, len(data_chunks)))
+
+    # Randomly sample additional indices to meet N_GENERATIONS, ensuring no duplicates
+    remaining_indices = list(set(range(num_docs)) - set(command_indices))
+    additional_sampled_indices = random.sample(
+        remaining_indices, max(0, min(N_GENERATIONS - len(command_indices), len(remaining_indices)))
+    )
+
+    # Combine command indices with additional sampled indices
+    sampled_indices = command_indices + additional_sampled_indices
+
+    print(f"Sampled {len(sampled_indices)} indices, ensuring all command_chunks are included.")
 
     # Prepare the LLM client and model
     client = openai
