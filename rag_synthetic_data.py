@@ -47,7 +47,7 @@ Now here is the context.
 
 Context: {context}
 """
-    system_message = ""
+    system_message = "You are a helpful assistant that generates factoid questions and answers."
     try:
         # Call the LLM using the provided function
         response_text, _ = get_response_from_llm(
@@ -108,7 +108,7 @@ Question: {question}
 
 Context: {context}
 """
-    system_message = ""
+    system_message = "You are a helpful assistant that evaluates questions."
     try:
         # Call the LLM using the provided function
         response_text, _ = get_response_from_llm(
@@ -156,7 +156,7 @@ if __name__ == "__main__":
     outputs = []
 
     # Number of QA pairs to generate
-    N_GENERATIONS = 200  # Adjust as needed
+    N_GENERATIONS = 110  # Adjust as needed
 
     print(f"Generating {N_GENERATIONS} QA pairs...")
 

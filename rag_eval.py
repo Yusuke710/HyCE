@@ -49,7 +49,7 @@ Generated Answer: {generated_answer}
 Reference Answer: {true_answer}
 """
 
-    system_message = "You are a fair evaluator language model."
+    system_message = "You are a helpful assistant that evaluates answers."
     try:
         # Call the LLM using the provided function
         response_text, _ = get_response_from_llm(
