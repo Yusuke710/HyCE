@@ -83,7 +83,7 @@ Your task is to evaluate the question based on the following criteria:
 
 1. **Groundedness**: The question can be answered unambiguously with the given context.
 
-2. **Relevance**: The question addresses a common, practical problem or concept that HPC users are likely to encountert given the context.
+2. **Relevance**: The question addresses a common, practical problem or concept that HPC users are likely to encounter given the context.
 
 3. **Standalone**: The question is understandable without additional context.
 
