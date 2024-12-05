@@ -19,7 +19,7 @@ def get_response_from_llm(
         system_message,
         print_debug=False,
         msg_history=None,
-        temperature=0.75,
+        temperature=0
 ):
     if msg_history is None:
         msg_history = []
