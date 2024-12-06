@@ -6,6 +6,7 @@ from sentence_transformers import SentenceTransformer
 import subprocess
 import faiss
 import torch
+import numpy as np
 
 # Import reusable functions from text_embedding.py
 from rag.text_embedding import save_embeddings, load_embeddings, build_faiss_index
@@ -106,7 +107,6 @@ if __name__ == '__main__':
         save_embeddings(embeddings, embeddings_file)
 
     # Step 2: Build the FAISS index
-    embeddings_np = embeddings.cpu().numpy()
     faiss_index = build_faiss_index(embeddings)
 
     # Step 3: Query and retrieve context
