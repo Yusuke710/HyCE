@@ -1,11 +1,11 @@
-# LLM RAG Evaluation for HPC
+# HyCE
 
 ## Overview
 This project implements and evaluates a Retrieval-Augmented Generation (RAG) system specifically designed for High Performance Computing (HPC) queries. It combines web-scraped documentation with command-line utilities to provide accurate responses to HPC-related questions.
 
 ## Key Features
 - Hybrid Context Enhancement (HyCE) approach combining web documentation and command outputs
-- Comprehensive evaluation framework
+- Automatic RAG evaluation
 
 ### Installation
 1. Clone the repository
@@ -23,7 +23,7 @@ python rag/web_scrape_by_llm.py
 
 2. Generate Command Embeddings:
 ```bash
-python command_embedding_hyde.py
+python command_embedding_hyce.py
 ```
 
 3. Run RAG System:
@@ -50,7 +50,7 @@ python rag_eval.py
 │   ├── web_scrape_by_llm.py    # Web scraping utilities
 │   ├── text_embedding.py        # Embedding functions
 │   └── llm.py                   # LLM interaction utilities
-├── command_embedding_hyde.py    # Command embedding generation
+├── command_embedding_hyce.py    # Command embedding generation
 ├── rag_answer.py               # Main RAG system
 ├── rag_synthetic_data.py       # Test data generation
 └── rag_eval.py                 # Evaluation framework
@@ -58,7 +58,5 @@ python rag_eval.py
 
 ## Contributing
 Feel free to submit issues and enhancement requests.
-
-## License
 
 

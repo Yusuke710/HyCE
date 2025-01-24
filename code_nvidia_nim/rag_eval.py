@@ -14,7 +14,7 @@ from rag.text_embedding import (
 )
 from rag.llm import get_response_from_llm, extract_json_between_markers, create_client
 from rag_answer import generate_rag_answer
-from command_embedding_hyde import load_commands
+from command_embedding_hyce import load_commands
 
 def evaluate_answer(question, generated_answer, true_answer, client, model):
     evaluation_prompt = f"""

@@ -6,7 +6,7 @@ from tqdm import tqdm
 
 from rag.web_scrape_by_tag import load_data_chunks
 from rag.llm import get_response_from_llm, extract_json_between_markers
-from command_embedding_hyde import load_commands, get_command_output
+from command_embedding_hyce import load_commands, get_command_output
 
 # Prepare source documents
 def prepare_documents(data_chunks):

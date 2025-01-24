@@ -1,5 +1,3 @@
-# command_hyde_with_embedding_refactored.py
-
 import os
 import json
 from sentence_transformers import SentenceTransformer
@@ -65,7 +63,7 @@ def retrieve_explanation(query, explanations, index, model):
     explanation = explanations[command_name]
     return command_name, explanation
 
-def generate_hyde_context(query, explanations, index, model):
+def generate_hyce_context(query, explanations, index, model):
     """
     Retrieves the relevant command explanation based on the query,
     runs the command if explanation is retrieved, and returns both as context.

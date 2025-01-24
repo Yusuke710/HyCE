@@ -14,7 +14,7 @@ from rag.text_embedding import (
     build_faiss_index,
 )
 from rag.llm import get_response_from_llm, extract_json_between_markers, create_client
-from command_embedding_hyde import load_commands, get_command_output
+from command_embedding_hyce import load_commands, get_command_output
 
 MAX_NUM_TOKENS = 128000
 
