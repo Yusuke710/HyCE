@@ -70,6 +70,9 @@ def save_web_data(url, output_dir='artifacts'):
     and saves the data to a JSON file.
     Each page's content is chunked semantically using an LLM.
     """
+    # Create output directory if it doesn't exist
+    os.makedirs(output_dir, exist_ok=True)
+    
     try:
         response = requests.get(url)
         response.raise_for_status()
@@ -81,7 +84,6 @@ def save_web_data(url, output_dir='artifacts'):
     anchors = soup.find_all('a')
 
     data = []
-    os.makedirs(output_dir, exist_ok=True)
     visited_urls = set()
 
     for anchor in anchors:

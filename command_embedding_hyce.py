@@ -101,5 +101,5 @@ if __name__ == '__main__':
 
     # Step 3: Query and retrieve context
     user_query = "What is my username?"
-    context = generate_hyde_context(user_query, COMMAND_EXPLANATIONS, faiss_index, bi_encoder)
+    context = generate_hyce_context(user_query, COMMAND_EXPLANATIONS, faiss_index, bi_encoder)
     print(json.dumps(context, indent=4))

@@ -21,9 +21,17 @@ def embed_corpus(corpus, bi_encoder, batch_size=64):
 
 def save_embeddings(embeddings, file_path):
     """
-    Saves the embeddings to a file using NumPy's save function.
+    Save embeddings to a numpy file.
     """
-    embeddings_np = embeddings.cpu().numpy()
+    # Create the directory if it doesn't exist
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+    
+    # Move tensor to CPU before converting to numpy
+    if hasattr(embeddings, 'cpu'):  # Check if it's a torch tensor
+        embeddings = embeddings.cpu()
+    
+    # Convert to numpy array if not already
+    embeddings_np = np.array(embeddings)
     np.save(file_path, embeddings_np)
     print(f"Embeddings saved to {file_path}")
 
