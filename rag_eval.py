@@ -146,8 +146,8 @@ if __name__ == "__main__":
                 index,
                 client_answer,
                 model_answer,
-                cot=False,
-                HyCE=False
+                cot=True,
+                HyCE=True
             )
 
             # Evaluate the generated answer

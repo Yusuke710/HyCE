@@ -189,7 +189,8 @@ if __name__ == "__main__":
                 index,
                 client,
                 model,
-                cot=True
+                cot=True,
+                HyCE=True
             )
 
             print("\nAnswer:")
