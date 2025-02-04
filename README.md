@@ -56,6 +56,14 @@ python rag_eval.py
 └── rag_eval.py                 # Evaluation framework
 ```
 
+### FAISS compatibility issues with MPS
+
+When runing ```python rag_answer.py```, you may encounter the following error:
+```bash
+segmentation fault  python rag_answer.py
+```
+This is due to FAISS not being fully compatible with MPS. There is yet to be a fix for this :(
+
 ## Contributing
 Feel free to submit issues and enhancement requests.
 
