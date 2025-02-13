@@ -159,18 +159,20 @@ def generate_rag_answer(question, corpus, corpus_embeddings, bi_encoder, cross_e
 if __name__ == "__main__":
     corpus = load_data_chunks('artifacts/web_data.json')
     
-    # Initialize HyCE and add command contexts
+    # Initialize models first
+    bi_encoder = SentenceTransformer('multi-qa-MiniLM-L6-cos-v1')
+    cross_encoder = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-12-v2')
+    
+    # Then initialize HyCE with the models
     hyce = HyCE(
-        embedding_model=SentenceTransformer('multi-qa-MiniLM-L6-cos-v1'),
+        embedding_model=bi_encoder,
+        cross_encoder=cross_encoder,
         commands_file='commands.json'
     )
     command_corpus = hyce.get_command_contexts()
     corpus.extend(command_corpus)
 
     if corpus:
-        bi_encoder = SentenceTransformer('multi-qa-MiniLM-L6-cos-v1')
-        cross_encoder = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-12-v2')
-
         embeddings_file = os.path.join('artifacts', 'combined_corpus_embeddings.npy')
         corpus_embeddings = load_embeddings(embeddings_file)
 
