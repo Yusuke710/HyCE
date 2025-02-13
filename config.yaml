@@ -1,0 +1,108 @@
+# System Settings
+system:
+  max_tokens: 4096  # Common max tokens for all models
+  temperature: 0.7  # Common temperature for all models
+  default_top_k: 10
+
+# HyCE Settings
+hyce:
+  enabled: true  # Enable/disable HyCE
+  command_retrieval:
+    top_k: 5  # Number of commands to retrieve
+    min_score: -100  # Minimum similarity score for command retrieval
+  reranking:
+    enabled: true  # Enable/disable reranking
+    top_k: 5  # Number of commands to rerank
+    min_score: -100  # Minimum score for reranked commands
+  execution:
+    timeout: 30  # Command execution timeout in seconds
+    max_output_length: 1000  # Maximum length of command output
+
+# LLM Models
+models:
+  # OpenAI models
+  gpt-4o-2024-08-06:
+    type: openai
+  gpt-4o-mini-2024-07-18:
+    type: openai
+  gpt-4o-2024-05-13:
+    type: openai
+  o1-preview-2024-09-12:
+    type: openai
+  o1-mini-2024-09-12:
+    type: openai
+  o1-2024-12-17:
+    type: openai
+
+  # Anthropic models
+  claude-3-5-sonnet-20240620:
+    type: anthropic
+  claude-3-5-sonnet-20241022:
+    type: anthropic
+
+  # OpenRouter models
+  llama3.1-405b:
+    type: openrouter
+
+  # Bedrock models
+  bedrock/anthropic.claude-3-sonnet-20240229-v1:0:
+    type: bedrock
+  bedrock/anthropic.claude-3-5-sonnet-20240620-v1:0:
+    type: bedrock
+  bedrock/anthropic.claude-3-5-sonnet-20241022-v2:0:
+    type: bedrock
+  bedrock/anthropic.claude-3-haiku-20240307-v1:0:
+    type: bedrock
+  bedrock/anthropic.claude-3-opus-20240229-v1:0:
+    type: bedrock
+
+  # Vertex AI models
+  vertex_ai/claude-3-opus@20240229:
+    type: vertex_ai
+  vertex_ai/claude-3-5-sonnet@20240620:
+    type: vertex_ai
+  vertex_ai/claude-3-5-sonnet-v2@20241022:
+    type: vertex_ai
+  vertex_ai/claude-3-sonnet@20240229:
+    type: vertex_ai
+  vertex_ai/claude-3-haiku@20240307:
+    type: vertex_ai
+
+  # DeepSeek models
+  deepseek-chat:
+    type: deepseek
+  deepseek-coder:
+    type: deepseek
+  deepseek-reasoner:
+    type: deepseek
+
+  # Google Gemini models
+  gemini-1.5-flash:
+    type: gemini
+  gemini-1.5-pro:
+    type: gemini
+
+  # Default model
+  default: gpt-4o-2024-08-06
+
+# Embedding Models
+embeddings:
+  sentence_transformer:
+    name: multi-qa-MiniLM-L6-cos-v1
+    dimension: 384
+  openai:
+    name: text-embedding-ada-002
+    dimension: 1536
+  default: sentence_transformer
+
+# Reranker Models
+rerankers:
+  cross_encoder:
+    name: cross-encoder/ms-marco-MiniLM-L-12-v2
+  default: cross_encoder
+
+# File Paths
+paths:
+  commands_file: commands.json
+  artifacts_dir: artifacts
+  web_data_file: web_data.json 

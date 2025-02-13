@@ -9,4 +9,5 @@ pandas
 anthropic
 tqdm
 numpy
+google-generativeai
 
