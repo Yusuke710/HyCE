@@ -311,10 +311,8 @@ def create_standard_rag(
             embedder=embedder,
             reranker=reranker,
             commands_file=commands_file,
-            config=hyce_config or {}  # Pass HyCE config or empty dict
+            config=hyce_config or {}
         )
-        corpus.extend(command_retriever.get_command_contexts())
-        retriever = FaissRetriever(embedder=embedder, corpus=corpus)
     
     return StandardRAG(
         embedder=embedder,

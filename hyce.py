@@ -150,17 +150,8 @@ class HyCE(BaseCommandRetriever):
         # Get relevant commands
         cmd_contexts = self.find_relevant_commands(query, top_k=top_k_commands)
         
-        # Remove duplicate commands (keep first occurrence)
-        seen_commands = set()
-        unique_cmd_contexts = []
-        for ctx in cmd_contexts:
-            cmd = ctx.get('command')
-            if cmd not in seen_commands:
-                seen_commands.add(cmd)
-                unique_cmd_contexts.append(ctx)
-        
         # Combine all contexts
-        all_contexts = doc_contexts + unique_cmd_contexts
+        all_contexts = doc_contexts + cmd_contexts
         texts = [chunk['chunk'] for chunk in all_contexts]
         
         # Rerank using cross-encoder
