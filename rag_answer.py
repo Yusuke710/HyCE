@@ -14,6 +14,7 @@ from rag.text_embedding import (
 )
 from rag.llm import get_response_from_llm, extract_json_between_markers
 from command_embedding_hyce import load_commands, get_command_output
+from rag.hyce import HyCE
 
 MAX_NUM_TOKENS = 128000
 
@@ -63,12 +64,13 @@ def search(query, corpus, corpus_embeddings, bi_encoder, cross_encoder, index, t
 
     return unique_chunks
 
-def generate_rag_answer(question, corpus, corpus_embeddings, bi_encoder, cross_encoder, index, client, model, cot=False, HyCE=False):
+def generate_rag_answer(question, corpus, corpus_embeddings, bi_encoder, cross_encoder, 
+                       index, client, model, cot=False, hyce_enabled=False):
     """
-    Generates an answer using the RAG system.
+    Generates an answer using the RAG system with optional HyCE support.
     """
-    # Retrieve relevant documents
-    top_chunks = search(
+    # First get relevant documents using existing search
+    doc_chunks = search(
         question,
         corpus,
         corpus_embeddings,
@@ -78,21 +80,33 @@ def generate_rag_answer(question, corpus, corpus_embeddings, bi_encoder, cross_e
         top_k=5
     )
 
-    # Prepare the context from top_chunks, including command execution if applicable
-    context = ""
-    if HyCE:
-        for i, chunk_info in enumerate(top_chunks):
-            # If the chunk is a command explanation, execute the command
-            if chunk_info.get('url') == 'command':
-                command = chunk_info['command']
-                output = get_command_output(command)
-                context += f"Command {i+1} Explanation:\n{chunk_info['chunk']}\n"
-                context += f"Command Output:\n{output}\n\n"
-            else:
-                # Otherwise, add the web-scraped content
-                context += f"Document {i+1}:\n{chunk_info['chunk']}\n\n"
+    # Process with HyCE if enabled
+    if hyce_enabled:
+        hyce = HyCE(
+            embedding_model=bi_encoder,
+            cross_encoder=cross_encoder,
+            similarity_threshold=0.5
+        )
+        # This will now do parallel retrieval, reranking, and command execution
+        top_chunks = hyce.process_contexts(
+            query=question,
+            doc_contexts=doc_chunks,
+            top_k_docs=5,
+            top_k_commands=3,
+            final_top_k=5
+        )
     else:
-        for i, chunk_info in enumerate(top_chunks):
+        top_chunks = doc_chunks
+
+    # Format context string
+    context = ""
+    for i, chunk_info in enumerate(top_chunks):
+        if chunk_info.get('url') == 'command':
+            context += f"Command {i+1} Explanation:\n{chunk_info['chunk']}\n"
+            if 'command_output' in chunk_info:
+                context += f"Command Output:\n{chunk_info['command_output']}\n"
+            context += "\n"
+        else:
             context += f"Document {i+1}:\n{chunk_info['chunk']}\n\n"
 
     # Limit context length to avoid token limits
@@ -144,10 +158,13 @@ def generate_rag_answer(question, corpus, corpus_embeddings, bi_encoder, cross_e
 # Main code
 if __name__ == "__main__":
     corpus = load_data_chunks('artifacts/web_data.json')
-    commands = load_commands('commands.json')
-
-    # Convert commands to corpus format and append them to the corpus
-    command_corpus = [{'chunk': explanation, 'url': 'command', 'command': cmd} for cmd, explanation in commands.items()]
+    
+    # Initialize HyCE and add command contexts
+    hyce = HyCE(
+        embedding_model=SentenceTransformer('multi-qa-MiniLM-L6-cos-v1'),
+        commands_file='commands.json'
+    )
+    command_corpus = hyce.get_command_contexts()
     corpus.extend(command_corpus)
 
     if corpus:
@@ -190,7 +207,7 @@ if __name__ == "__main__":
                 client,
                 model,
                 cot=True,
-                HyCE=True
+                hyce_enabled=True
             )
 
             print("\nAnswer:")
