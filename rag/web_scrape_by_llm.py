@@ -10,7 +10,7 @@ import openai
 import backoff
 
 # Import the functions provided
-from llm import get_response_from_llm, extract_json_between_markers
+from utils.llm import get_response_from_llm, extract_json_between_markers
 
 def normalize_url(url):
     """
