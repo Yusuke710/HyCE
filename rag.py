@@ -173,7 +173,7 @@ class StandardRAG:
         """Retrieve relevant contexts, optionally including HyCE results"""
         if debug:
             print("\n=== Retrieved Documents ===")
-            
+        
         # Get initial documents
         doc_contexts = self.retriever.retrieve(query, top_k=top_k)
         
@@ -189,7 +189,7 @@ class StandardRAG:
                 print("\n=== HyCE Processing ===")
             contexts = self.command_retriever.process_contexts(
                 query=query,
-                doc_contexts=doc_contexts,
+                doc_contexts=doc_contexts,  # Pass already retrieved docs
                 top_k_docs=top_k,
                 top_k_commands=top_k,
                 final_top_k=top_k
@@ -211,7 +211,7 @@ class StandardRAG:
                         print(f"Content: {chunk['chunk'][:200]}...")
         else:
             contexts = doc_contexts
-            
+        
         return contexts
     
     def format_context(self, contexts: List[Dict[str, Any]]) -> str:

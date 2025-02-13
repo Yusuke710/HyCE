@@ -3,6 +3,7 @@ import json
 import subprocess
 import faiss
 import numpy as np
+import concurrent.futures
 from typing import Dict, List, Tuple, Optional, Any
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
@@ -147,8 +148,14 @@ class HyCE(BaseCommandRetriever):
                         top_k_docs: int = 5, top_k_commands: int = 3, 
                         final_top_k: int = 5) -> List[Dict[str, Any]]:
         """Process and combine document and command contexts"""
-        # Get relevant commands
-        cmd_contexts = self.find_relevant_commands(query, top_k=top_k_commands)
+        
+        # Create thread pool for parallel retrieval
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            # Submit both retrievals in parallel
+            cmd_future = executor.submit(self.find_relevant_commands, query, top_k_commands)
+            
+            # Wait for both to complete
+            cmd_contexts = cmd_future.result()
         
         # Combine all contexts
         all_contexts = doc_contexts + cmd_contexts
