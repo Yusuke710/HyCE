@@ -9,6 +9,7 @@ from typing import List, Dict, Tuple, Union, Any, Optional
 from sentence_transformers import SentenceTransformer, CrossEncoder
 from utils import get_response_from_llm, extract_json_between_markers
 from hyce import BaseCommandRetriever, HyCE
+import time
 
 # Constants
 MAX_NUM_TOKENS = 4096
@@ -171,46 +172,38 @@ class StandardRAG:
     
     def retrieve(self, query: str, top_k: int = 5, debug: bool = False) -> List[Dict[str, Any]]:
         """Retrieve relevant contexts, optionally including HyCE results"""
+        total_start = time.time()
+        
         if debug:
-            print("\n=== Retrieved Documents ===")
+            print("\n=== Document Retrieval ===")
+        start_time = time.time()
         
         # Get initial documents
         doc_contexts = self.retriever.retrieve(query, top_k=top_k)
         
         if debug:
-            for i, chunk in enumerate(doc_contexts, 1):
-                print(f"\nDocument {i} (Score: {chunk.get('score', 'N/A'):.3f}):")
-                print(f"Source: {chunk.get('url', 'unknown')}")
-                print(f"Content: {chunk['chunk'][:200]}...")
+            doc_time = time.time() - start_time
+            print(f"Document retrieval took: {doc_time:.2f} seconds")
+            print(f"Found {len(doc_contexts)} documents:")
+            for doc in doc_contexts:
+                print(f"- {doc.get('url', 'unknown')} (Score: {doc.get('score', 'N/A'):.3f})")
         
         # If HyCE is enabled, process with it
         if self.command_retriever:
-            if debug:
-                print("\n=== HyCE Processing ===")
             contexts = self.command_retriever.process_contexts(
                 query=query,
-                doc_contexts=doc_contexts,  # Pass already retrieved docs
+                doc_contexts=doc_contexts,
                 top_k_docs=top_k,
                 top_k_commands=top_k,
-                final_top_k=top_k
+                final_top_k=top_k,
+                debug=debug
             )
-            
-            if debug:
-                print("\n=== Final Rankings After Reranking ===")
-                for i, chunk in enumerate(contexts, 1):
-                    print(f"\nRank {i}:")
-                    print(f"Type: {'Command' if chunk.get('url') == 'command' else 'Document'}")
-                    print(f"Score: {chunk.get('cross_encoder_score', 'N/A'):.3f}")
-                    if chunk.get('url') == 'command':
-                        print(f"Command: {chunk.get('command', 'N/A')}")
-                        print(f"Description: {chunk['chunk']}")
-                        if 'command_output' in chunk:
-                            print(f"Output: {chunk['command_output']}")
-                    else:
-                        print(f"Source: {chunk.get('url', 'unknown')}")
-                        print(f"Content: {chunk['chunk'][:200]}...")
         else:
             contexts = doc_contexts
+        
+        if debug:
+            total_time = time.time() - total_start
+            print(f"\nTotal retrieval process took: {total_time:.2f} seconds")
         
         return contexts
     
@@ -236,14 +229,15 @@ class StandardRAG:
     def query(self, query: str, top_k: int = 5, cot: bool = False, 
              debug: bool = False) -> str:
         """Full RAG pipeline: retrieve + generate"""
+        # Retrieval phase
         contexts = self.retrieve(query, top_k=top_k, debug=debug)
-        context = self.format_context(contexts)
         
+        # LLM phase
         if debug:
-            print("\n=== Calling LLM API ===")
-            print(f"Model: {self.llm_model}")
+            print("\n=== LLM Processing ===")
+        start_time = time.time()
         
-        # Prepare the system message and user message
+        context = self.format_context(contexts)
         system_message = "You are an assistant that provides accurate and concise answers based on the provided documents."
         
         if cot:
@@ -262,7 +256,6 @@ class StandardRAG:
         else:
             user_message = f"Answer the following question based on the provided documents.\n\nQuestion: {query}\n\nDocuments:\n{context}"
 
-        # Call the LLM
         try:
             result = get_response_from_llm(
                 msg=user_message,
@@ -272,12 +265,15 @@ class StandardRAG:
                 print_debug=debug
             )
             
-            # Handle case where get_response_from_llm returns None
+            if debug:
+                llm_time = time.time() - start_time
+                print(f"LLM processing took: {llm_time:.2f} seconds")
+            
             if result is None:
                 return "Error: Failed to get response from LLM"
             
-            content, _ = result  # Unpack only if result is not None
-
+            content, _ = result
+            
             if cot:
                 response_json = extract_json_between_markers(content)
                 if response_json is None:

@@ -8,6 +8,8 @@ from typing import Dict, List, Tuple, Optional, Any
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
 import torch
+import time
+from datetime import datetime
 
 @dataclass
 class CommandResult:
@@ -34,7 +36,7 @@ class BaseCommandRetriever(ABC):
     @abstractmethod
     def process_contexts(self, query: str, doc_contexts: List[Dict[str, Any]], 
                         top_k_docs: int = 5, top_k_commands: int = 3, 
-                        final_top_k: int = 5) -> List[Dict[str, Any]]:
+                        final_top_k: int = 5, debug: bool = False) -> List[Dict[str, Any]]:
         """Process and combine document and command contexts"""
         pass
 
@@ -146,16 +148,29 @@ class HyCE(BaseCommandRetriever):
     
     def process_contexts(self, query: str, doc_contexts: List[Dict[str, Any]], 
                         top_k_docs: int = 5, top_k_commands: int = 3, 
-                        final_top_k: int = 5) -> List[Dict[str, Any]]:
+                        final_top_k: int = 5, debug: bool = False) -> List[Dict[str, Any]]:
         """Process and combine document and command contexts"""
+        
+        if debug:
+            print("\n=== Command Retrieval ===")
+        start_time = time.time()
         
         # Create thread pool for parallel retrieval
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-            # Submit both retrievals in parallel
+            # Submit command retrieval
             cmd_future = executor.submit(self.find_relevant_commands, query, top_k_commands)
-            
-            # Wait for both to complete
             cmd_contexts = cmd_future.result()
+        
+        if debug:
+            cmd_time = time.time() - start_time
+            print(f"Command retrieval took: {cmd_time:.2f} seconds")
+            print(f"Found {len(cmd_contexts)} commands:")
+            for cmd in cmd_contexts:
+                print(f"- {cmd['command']} (Score: {cmd['score']:.3f})")
+        
+        if debug:
+            print("\n=== Reranking Process ===")
+        start_time = time.time()
         
         # Combine all contexts
         all_contexts = doc_contexts + cmd_contexts
@@ -173,7 +188,21 @@ class HyCE(BaseCommandRetriever):
             reverse=True
         )[:final_top_k]
         
+        if debug:
+            rerank_time = time.time() - start_time
+            print(f"Reranking took: {rerank_time:.2f} seconds")
+            print("Reranked results:")
+            for ctx in ranked_contexts:
+                if ctx.get('url') == 'command':
+                    print(f"- {ctx['command']} (Score: {ctx['cross_encoder_score']:.3f})")
+                else:
+                    print(f"- {ctx.get('url', 'unknown')} (Score: {ctx['cross_encoder_score']:.3f})")
+        
         # Execute commands that meet threshold
+        if debug:
+            print("\n=== Command Execution ===")
+        start_time = time.time()
+        
         min_score = self.config.get('reranking', {}).get('min_score', -100)
         for context in ranked_contexts:
             if (context.get('url') == 'command' and 
@@ -181,6 +210,10 @@ class HyCE(BaseCommandRetriever):
                 result = self.execute_command(context['command'])
                 if result.success:
                     context['command_output'] = result.output
+        
+        if debug:
+            exec_time = time.time() - start_time
+            print(f"Command execution took: {exec_time:.2f} seconds")
         
         return ranked_contexts
     
