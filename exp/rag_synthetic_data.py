@@ -1,12 +1,17 @@
 import os
+import sys
+
+# Add project root to Python path
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(project_root)
+
 import random
 import openai
 import pandas as pd
 from tqdm import tqdm
-
-from rag.web_scrape_by_tag import load_data_chunks
-from rag.llm import get_response_from_llm, extract_json_between_markers
-from command_embedding_hyce import load_commands, get_command_output
+from utils.config import get_system_config, get_paths_config
+from utils import load_data_chunks, get_response_from_llm, extract_json_between_markers
+from rag import create_standard_rag
 
 # Prepare source documents
 def prepare_documents(data_chunks):
@@ -139,18 +144,29 @@ Context: {context}
 
 # Main code to generate the synthetic dataset
 if __name__ == "__main__":
-    # Load data chunks from web data
-    data_chunks = load_data_chunks(os.path.join("artifacts", "web_data.json"))
-
-    # Load commands
-    commands = load_commands('commands.json')
-
-    # Convert commands into data chunks and extend data_chunks
-    command_chunks = [{'chunk': explanation, 'url': 'command', 'command': cmd} for cmd, explanation in commands.items()]
-    data_chunks.extend(command_chunks)
-
-    # Prepare documents
-    documents = prepare_documents(data_chunks)
+    # Load configs
+    paths = get_paths_config()
+    system_config = get_system_config()
+    
+    # Load data chunks
+    data_path = os.path.join(paths.get('artifacts_dir', 'artifacts'), 
+                            paths.get('web_data_file', 'web_data.json'))
+    data_chunks = load_data_chunks(data_path)
+    
+    # Create RAG system
+    client = openai.OpenAI()
+    model = 'gpt-4o-2024-08-06'  # Replace with your desired model
+    
+    rag = create_standard_rag(
+        corpus=data_chunks,
+        llm_client=client,
+        llm_model=model,
+        use_hyce=True,
+        commands_file=paths.get('commands_file', 'commands.json')
+    )
+    
+    # Rest of the code remains similar but uses rag.retriever.corpus instead of data_chunks
+    documents = prepare_documents(rag.retriever.corpus)
 
     # Initialize outputs
     outputs = []
@@ -161,30 +177,8 @@ if __name__ == "__main__":
     print(f"Generating {N_GENERATIONS} QA pairs...")
 
     num_docs = len(documents)
-    num_command_chunks = len(command_chunks)
 
-    # Calculate the starting index of command_chunks in data_chunks
-    command_start_index = len(data_chunks) - num_command_chunks
-
-    # Get indices of command_chunks
-    command_indices = list(range(command_start_index, len(data_chunks)))
-
-    # Randomly sample additional indices to meet N_GENERATIONS, ensuring no duplicates
-    remaining_indices = list(set(range(num_docs)) - set(command_indices))
-    additional_sampled_indices = random.sample(
-        remaining_indices, max(0, min(N_GENERATIONS - len(command_indices), len(remaining_indices)))
-    )
-
-    # Combine command indices with additional sampled indices
-    sampled_indices = command_indices + additional_sampled_indices
-
-    print(f"Sampled {len(sampled_indices)} indices, ensuring all command_chunks are included.")
-
-    # Prepare the LLM client and model
-    client = openai
-    model = 'gpt-4o-2024-08-06'  # Replace with your desired model
-
-    for idx in tqdm(sampled_indices):
+    for idx in tqdm(range(num_docs)):
         # Get the context document
         context_doc = documents[idx]
         
@@ -192,12 +186,13 @@ if __name__ == "__main__":
         text = context_doc['text']
         context = text
         if context_doc['source'] == 'command':
-            # Retrieve the command
-            command = next((chunk['command'] for chunk in data_chunks if chunk['chunk'] == text), None)
+            # Get command from the document
+            command = next((chunk['command'] for chunk in rag.retriever.corpus if chunk.get('chunk') == text), None)
             if command:
-                # Execute the command and include its output
-                command_output = get_command_output(command)
-                context += f"\nCommand Output:\n{command_output}"
+                # Execute command using HyCE
+                result = rag.command_retriever.execute_command(command)
+                if result.success:
+                    context += f"\nCommand Output:\n{result.output}"
 
         # Source documents (for reference)
         source_docs = context_doc['source']
