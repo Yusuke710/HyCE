@@ -2,7 +2,7 @@
 system:
   max_tokens: 4096  # Common max tokens for all models
   temperature: 0.7  # Common temperature for all models
-  default_top_k: 10
+  embedding_type: "openai-ada" # or "openai-ada"
 
 # HyCE Settings
 hyce:
@@ -87,13 +87,11 @@ models:
 
 # Embedding Models
 embeddings:
-  sentence_transformer:
-    name: multi-qa-MiniLM-L6-cos-v1
-    dimension: 384
-  openai:
-    name: text-embedding-ada-002
-    dimension: 1536
-  default: sentence_transformer
+  default: "sentence-transformer"  # or "openai-ada"
+  sentence-transformer:
+    model: "sentence-transformers/all-MiniLM-L6-v2"
+  openai-ada:
+    model: "text-embedding-ada-002"
 
 # Reranker Models
 rerankers:

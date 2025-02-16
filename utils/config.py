@@ -36,15 +36,6 @@ if not DEFAULT_MODEL or DEFAULT_MODEL not in AVAILABLE_MODELS:
 # Get list of available model names
 AVAILABLE_LLMS = list(AVAILABLE_MODELS.keys())
 
-def get_model_config(model_name: str = None) -> Dict[str, Any]:
-    """Get model configuration"""
-    if model_name is None:
-        model_name = DEFAULT_MODEL
-    model_config = CONFIG.get('models', {}).get(model_name)
-    if not model_config:
-        raise ValueError(f"Model {model_name} not found in configuration")
-    return model_config
-
 def get_embedding_config(name: str = None) -> Dict[str, Any]:
     """Get embedding model configuration"""
     embeddings = CONFIG.get('embeddings', {})

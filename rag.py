@@ -8,6 +8,7 @@ from abc import ABC, abstractmethod
 from typing import List, Dict, Tuple, Union, Any, Optional
 from sentence_transformers import SentenceTransformer, CrossEncoder
 from utils import get_response_from_llm, extract_json_between_markers
+from utils.config import get_embedding_config
 from hyce import BaseCommandRetriever, HyCE
 import time
 
@@ -32,6 +33,7 @@ class SentenceTransformerEmbedder(BaseEmbedder):
     """Sentence Transformer implementation of embedder"""
     
     def __init__(self, model_name: str = 'multi-qa-MiniLM-L6-cos-v1'):
+        self.model_name = model_name  # Store the model name
         self.model = SentenceTransformer(model_name)
         
     def encode(self, texts: List[str], **kwargs) -> torch.Tensor:
@@ -53,12 +55,19 @@ class OpenAIEmbedder(BaseEmbedder):
         self._dimension = 1536  # ada-002 dimension
         
     def encode(self, texts: List[str], **kwargs) -> np.ndarray:
+        if not isinstance(texts, list):
+            texts = [texts]
+            
         response = self.client.embeddings.create(
             model=self.model,
             input=texts
         )
         embeddings = [r.embedding for r in response.data]
-        return np.array(embeddings)
+        # Ensure correct shape and dtype for FAISS
+        embeddings_array = np.array(embeddings, dtype=np.float32)
+        if len(texts) == 1:
+            embeddings_array = embeddings_array.reshape(1, -1)
+        return embeddings_array
     
     def get_dimension(self) -> int:
         return self._dimension
@@ -98,21 +107,59 @@ class BaseRetriever(ABC):
 class FaissRetriever(BaseRetriever):
     """FAISS-based retriever implementation"""
     
-    def __init__(self, embedder: BaseEmbedder, corpus: List[Dict[str, Any]]):
+    def __init__(self, embedder: BaseEmbedder, corpus: List[Dict[str, Any]], 
+                 cache_dir: str = "artifacts/embeddings"):
         self.embedder = embedder
         self.corpus = corpus
+        self.cache_dir = cache_dir
+        # Create all parent directories
+        os.makedirs(self.cache_dir, exist_ok=True)
+        print(f"Created cache directory: {self.cache_dir}")  # Debug print
         self.index = self._build_index()
     
+    def _get_cache_path(self, model_name: str) -> str:
+        """Get path for cached embeddings"""
+        if isinstance(model_name, str):
+            safe_name = model_name.replace('/', '_')
+        else:
+            # For SentenceTransformer, get the model name
+            safe_name = model_name.get_sentence_embedding_dimension()
+        return os.path.join(self.cache_dir, f"{safe_name}_embeddings.npy")
+    
     def _build_index(self) -> faiss.Index:
-        """Build FAISS index from corpus"""
+        """Build FAISS index from corpus, using cache if available"""
         corpus_texts = [doc['chunk'] for doc in self.corpus]
-        embeddings = self.embedder.encode(corpus_texts)
         
-        # Convert to numpy if needed
-        if isinstance(embeddings, torch.Tensor):
-            embeddings_np = embeddings.cpu().numpy()
-        else:  # numpy array
-            embeddings_np = embeddings
+        # Get appropriate model name for cache
+        if isinstance(self.embedder, OpenAIEmbedder):
+            model_name = self.embedder.model
+        elif isinstance(self.embedder, SentenceTransformerEmbedder):
+            model_name = self.embedder.model_name  # Use our stored model name
+        else:
+            model_name = 'default'
+        
+        cache_path = self._get_cache_path(model_name)
+        
+        print(f"Checking cache at: {cache_path}")  # Debug print
+        print(f"Cache directory exists: {os.path.exists(self.cache_dir)}")  # Debug print
+        
+        # Try to load cached embeddings
+        if os.path.exists(cache_path):
+            print(f"Loading cached embeddings from {cache_path}")
+            embeddings_np = np.load(cache_path)
+        else:
+            print(f"Computing embeddings for {len(corpus_texts)} texts...")
+            embeddings = self.embedder.encode(corpus_texts)
+            
+            # Convert to numpy if needed
+            if isinstance(embeddings, torch.Tensor):
+                embeddings_np = embeddings.cpu().numpy()
+            else:  # numpy array
+                embeddings_np = embeddings
+            
+            # Save embeddings to cache
+            print(f"Saving embeddings to {cache_path}")
+            np.save(cache_path, embeddings_np)
         
         # Build FAISS index
         dimension = self.embedder.get_dimension()
@@ -288,15 +335,26 @@ def create_standard_rag(
     corpus: List[Dict[str, Any]], 
     llm_client: Any,
     llm_model: str,
-    embedding_type: str = "sentence_transformer",
+    embedding_type: str = "sentence-transformer",
     use_hyce: bool = True,
     commands_file: str = 'commands.json',
     hyce_config: Dict[str, Any] = None
 ) -> StandardRAG:
     """Factory function to create a standard RAG system"""
     
-    embedder = (SentenceTransformerEmbedder() if embedding_type == "sentence_transformer" 
-               else OpenAIEmbedder(client=llm_client))
+    # Get embedding config
+    embedding_config = get_embedding_config(embedding_type)
+    
+    # Create embedder based on type
+    if embedding_type == "openai-ada":
+        embedder = OpenAIEmbedder(
+            client=llm_client,
+            model=embedding_config.get('model', 'text-embedding-ada-002')
+        )
+    else:  # default to sentence-transformer
+        embedder = SentenceTransformerEmbedder(
+            model_name=embedding_config.get('model', 'sentence-transformers/all-MiniLM-L6-v2')
+        )
     
     reranker = CrossEncoderReranker()
     retriever = FaissRetriever(embedder=embedder, corpus=corpus)
