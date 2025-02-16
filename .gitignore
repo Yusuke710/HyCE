@@ -2,3 +2,6 @@ venv_rag
 venv
 artifacts
 utils/__pycache__
+__pycache__
+*.pyc
+.DS_Store

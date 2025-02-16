@@ -3,11 +3,12 @@ beautifulsoup4
 faiss-cpu
 sentence-transformers
 torch
-openai
+openai>=1.0.0
 backoff
 pandas
 anthropic
 tqdm
 numpy
 google-generativeai
+pyyaml
 
