@@ -2,7 +2,6 @@
 
 import os
 from utils.config import (
-    get_model_config,
     get_paths_config,
     get_system_config,
     AVAILABLE_MODELS,
@@ -17,6 +16,10 @@ def main():
     paths = get_paths_config()
     system_config = get_system_config()
     hyce_config = system_config.get('hyce', {})
+    
+    # Debug prints
+    print("System config:", system_config)
+    print("Embedding type:", system_config.get('embedding_type'))
     
     # Use default model or specify one
     if not DEFAULT_MODEL:
@@ -35,6 +38,7 @@ def main():
         corpus=corpus,
         llm_client=llm_client,
         llm_model=model_name,
+        embedding_type=system_config.get('embedding_type', 'sentence-transformer'),
         use_hyce=hyce_config.get('enabled', True),
         commands_file=paths.get('commands_file', 'commands.json'),
         hyce_config=hyce_config
