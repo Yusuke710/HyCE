@@ -68,6 +68,28 @@ The system is configured through `config.yaml`:
 system:
   max_tokens: 4096
   temperature: 0.7
+  embedding_type: "openai-ada"
+
+# LLM Models
+models:
+  # Default model to use
+  default: gpt-4o-2024-08-06
+
+  # Available models:
+  gpt-4o-2024-08-06:
+    type: openai
+  claude-3-5-sonnet-20240620:
+    type: anthropic
+  llama3.1-405b:
+    type: openrouter
+  bedrock/anthropic.claude-3-sonnet-20240229-v1:0:
+    type: bedrock
+  vertex_ai/claude-3-opus@20240229:
+    type: vertex_ai
+  deepseek-chat:
+    type: deepseek
+  gemini-1.5-pro:
+    type: gemini
 
 command_retrieval:
   top_k: 5
@@ -86,7 +108,46 @@ paths:
   commands_file: commands.json
   artifacts_dir: artifacts
   web_data_file: web_data.json
+
+embeddings:
+  default: "sentence-transformer"
+  openai-ada:
+    model: "text-embedding-ada-002"
+  sentence-transformer:
+    model: "sentence-transformers/all-MiniLM-L6-v2"
 ```
+
+To use OpenAI embeddings:
+1. Set `system.embedding_type` to "openai-ada"
+2. Ensure you have OpenAI API access configured
+3. Install requirements: `pip install openai>=1.0.0`
+
+### Model Selection
+
+You can choose which LLM to use in two ways:
+
+1. **Default Model**: Set in `config.yaml`:
+```yaml
+models:
+  default: gpt-4o-2024-08-06  # Change this to your preferred model
+```
+
+2. **Environment Variable**: Override the default model:
+```bash
+export LLM_MODEL=claude-3-5-sonnet-20240620
+python rag_answer.py
+```
+
+Available model types:
+- `openai`: OpenAI models (requires API key)
+- `anthropic`: Anthropic Claude models (requires API key)
+- `openrouter`: OpenRouter models (requires API key)
+- `bedrock`: AWS Bedrock models (requires AWS credentials)
+- `vertex_ai`: Google Vertex AI models (requires GCP credentials)
+- `deepseek`: DeepSeek models (requires API key)
+- `gemini`: Google Gemini models (requires API key)
+
+Each model type requires appropriate credentials to be set up.
 
 ### FAISS compatibility issues with MPS
 
