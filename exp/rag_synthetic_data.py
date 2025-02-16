@@ -5,7 +5,6 @@ import sys
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(project_root)
 
-import random
 import openai
 import pandas as pd
 from tqdm import tqdm
@@ -161,6 +160,7 @@ if __name__ == "__main__":
         corpus=data_chunks,
         llm_client=client,
         llm_model=model,
+        embedding_type=system_config.get('embedding_type', 'sentence-transformer'),
         use_hyce=True,
         commands_file=paths.get('commands_file', 'commands.json')
     )

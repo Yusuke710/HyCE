@@ -96,6 +96,7 @@ if __name__ == "__main__":
         corpus=corpus,
         llm_client=client_answer,
         llm_model=model_answer,
+        embedding_type=system_config.get('embedding_type', 'sentence-transformer'),
         use_hyce=True,
         commands_file=paths.get('commands_file', 'commands.json')
     )
