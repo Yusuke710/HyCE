@@ -9,7 +9,26 @@ from utils.config import (
 )
 from utils import load_data_chunks
 from utils.llm import create_client
+from utils.web_scraper import scrape_documentation
 from rag import create_standard_rag
+
+def ensure_data_exists(paths):
+    """Ensure the web data exists, if not, run the scraper."""
+    data_path = os.path.join(paths.get('artifacts_dir', 'artifacts'), 
+                            paths.get('web_data_file', 'web_data.json'))
+    
+    # Create artifacts directory if it doesn't exist
+    os.makedirs(os.path.dirname(data_path), exist_ok=True)
+    
+    if not os.path.exists(data_path):
+        print("\nNo existing documentation found. Starting web scraping...")
+        try:
+            scrape_documentation(output_path=data_path)
+            print("Web scraping completed successfully!")
+        except Exception as e:
+            raise Exception(f"Failed to scrape documentation: {str(e)}")
+    
+    return data_path
 
 def main():
     # Get configs
@@ -17,9 +36,14 @@ def main():
     system_config = get_system_config()
     hyce_config = system_config.get('hyce', {})
     
-    # Debug prints
-    print("System config:", system_config)
-    print("Embedding type:", system_config.get('embedding_type'))
+    print("Initializing the system...")
+    
+    # Ensure we have the required data
+    try:
+        data_path = ensure_data_exists(paths)
+    except Exception as e:
+        print(f"Error during initialization: {str(e)}")
+        return
     
     # Use default model or specify one
     if not DEFAULT_MODEL:
@@ -29,8 +53,6 @@ def main():
     llm_client, model_name = create_client(DEFAULT_MODEL)
     
     # Load corpus
-    data_path = os.path.join(paths.get('artifacts_dir', 'artifacts'), 
-                            paths.get('web_data_file', 'web_data.json'))
     corpus = load_data_chunks(data_path)
     
     # Create RAG system with HyCE enabled

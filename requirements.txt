@@ -3,7 +3,7 @@ beautifulsoup4
 faiss-cpu
 sentence-transformers
 torch
-openai>=1.0.0
+openai
 backoff
 pandas
 anthropic
