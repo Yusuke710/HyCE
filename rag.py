@@ -112,9 +112,15 @@ class FaissRetriever(BaseRetriever):
         self.embedder = embedder
         self.corpus = corpus
         self.cache_dir = cache_dir
-        # Create all parent directories
         os.makedirs(self.cache_dir, exist_ok=True)
-        print(f"Created cache directory: {self.cache_dir}")  # Debug print
+        
+        # Add validation
+        if not self.corpus:
+            raise ValueError("Empty corpus provided to FaissRetriever")
+        
+        # Debug prints
+        print(f"Initializing FaissRetriever with {len(self.corpus)} documents")
+        
         self.index = self._build_index()
     
     def _get_cache_path(self, model_name: str) -> str:
@@ -128,25 +134,33 @@ class FaissRetriever(BaseRetriever):
     
     def _build_index(self) -> faiss.Index:
         """Build FAISS index from corpus, using cache if available"""
+        if not self.corpus:
+            raise ValueError("Cannot build index from empty corpus")
+            
         corpus_texts = [doc['chunk'] for doc in self.corpus]
+        print(f"Building index for {len(corpus_texts)} texts")
         
         # Get appropriate model name for cache
         if isinstance(self.embedder, OpenAIEmbedder):
             model_name = self.embedder.model
         elif isinstance(self.embedder, SentenceTransformerEmbedder):
-            model_name = self.embedder.model_name  # Use our stored model name
+            model_name = self.embedder.model_name
         else:
             model_name = 'default'
         
         cache_path = self._get_cache_path(model_name)
         
-        print(f"Checking cache at: {cache_path}")  # Debug print
-        print(f"Cache directory exists: {os.path.exists(self.cache_dir)}")  # Debug print
-        
         # Try to load cached embeddings
         if os.path.exists(cache_path):
             print(f"Loading cached embeddings from {cache_path}")
             embeddings_np = np.load(cache_path)
+            print(f"Loaded embeddings shape: {embeddings_np.shape}")
+            
+            # Validate embeddings match corpus size
+            if len(embeddings_np) != len(corpus_texts):
+                print("Warning: Cache size mismatch with corpus. Recomputing embeddings.")
+                os.remove(cache_path)  # Remove invalid cache
+                return self._build_index()  # Retry building
         else:
             print(f"Computing embeddings for {len(corpus_texts)} texts...")
             embeddings = self.embedder.encode(corpus_texts)
@@ -157,20 +171,31 @@ class FaissRetriever(BaseRetriever):
             else:  # numpy array
                 embeddings_np = embeddings
             
+            print(f"Computed embeddings shape: {embeddings_np.shape}")
+            
             # Save embeddings to cache
             print(f"Saving embeddings to {cache_path}")
             np.save(cache_path, embeddings_np)
         
         # Build FAISS index
         dimension = self.embedder.get_dimension()
-        index = faiss.IndexFlatIP(dimension)  # Inner Product for cosine similarity
-        faiss.normalize_L2(embeddings_np)  # Normalize embeddings
+        index = faiss.IndexFlatIP(dimension)
+        
+        if len(embeddings_np) == 0:
+            raise ValueError("No embeddings to add to index")
+            
+        faiss.normalize_L2(embeddings_np)
         index.add(embeddings_np)
         
+        print(f"Built FAISS index with {index.ntotal} vectors")
         return index
     
     def retrieve(self, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
         """Retrieve most relevant documents for query"""
+        if not self.corpus or not self.index.ntotal:
+            print("Warning: Empty corpus or index")
+            return []
+            
         # Encode query
         query_embedding = self.embedder.encode([query])
         if isinstance(query_embedding, torch.Tensor):
@@ -180,11 +205,14 @@ class FaissRetriever(BaseRetriever):
         faiss.normalize_L2(query_embedding)
         
         # Search
-        distances, indices = self.index.search(query_embedding, top_k)
+        distances, indices = self.index.search(query_embedding, min(top_k, len(self.corpus)))
         
         # Format results
         results = []
         for idx, score in zip(indices[0], distances[0]):
+            if idx < 0 or idx >= len(self.corpus):
+                print(f"Warning: Invalid index {idx} for corpus of size {len(self.corpus)}")
+                continue
             doc = self.corpus[int(idx)].copy()
             doc['score'] = float(score)
             results.append(doc)
@@ -216,6 +244,7 @@ class StandardRAG:
         self.llm_model = llm_model
         self.command_retriever = command_retriever
         self.max_tokens = max_tokens
+        self.message_history = []  # Initialize conversation history
     
     def retrieve(self, query: str, top_k: int = 5, debug: bool = False) -> List[Dict[str, Any]]:
         """Retrieve relevant contexts, optionally including HyCE results"""
@@ -275,7 +304,7 @@ class StandardRAG:
     
     def query(self, query: str, top_k: int = 5, cot: bool = False, 
              debug: bool = False) -> str:
-        """Full RAG pipeline: retrieve + generate"""
+        """Full RAG pipeline: retrieve + generate with conversation history"""
         # Retrieval phase
         contexts = self.retrieve(query, top_k=top_k, debug=debug)
         
@@ -285,11 +314,11 @@ class StandardRAG:
         start_time = time.time()
         
         context = self.format_context(contexts)
-        system_message = "You are an assistant that provides accurate and concise answers based on the provided documents."
+        system_message = "You are an assistant that provides accurate and concise answers based on the provided documents and conversation history."
         
         if cot:
             user_message = (
-                f"Answer the following question based on the provided documents.\n"
+                f"Answer the following question based on the provided documents and conversation history.\n"
                 f"Question: {query}\n\n"
                 f"Documents:\n{context}\n\n"
                 f"Provide your thinking for each step, and then provide the answer in the following **JSON format**:\n"
@@ -301,7 +330,7 @@ class StandardRAG:
                 "```"
             )
         else:
-            user_message = f"Answer the following question based on the provided documents.\n\nQuestion: {query}\n\nDocuments:\n{context}"
+            user_message = f"Answer the following question based on the provided documents and conversation history.\n\nQuestion: {query}\n\nDocuments:\n{context}"
 
         try:
             result = get_response_from_llm(
@@ -309,7 +338,8 @@ class StandardRAG:
                 client=self.llm_client,
                 model=self.llm_model,
                 system_message=system_message,
-                print_debug=debug
+                print_debug=debug,
+                msg_history=self.message_history  # Pass conversation history
             )
             
             if debug:
@@ -319,7 +349,8 @@ class StandardRAG:
             if result is None:
                 return "Error: Failed to get response from LLM"
             
-            content, _ = result
+            content, new_history = result
+            self.message_history = new_history  # Update conversation history
             
             if cot:
                 response_json = extract_json_between_markers(content)
@@ -330,6 +361,10 @@ class StandardRAG:
                 return content or "No response generated"
         except Exception as e:
             return f"Error generating response: {str(e)}"
+
+    def reset_history(self):
+        """Reset the conversation history"""
+        self.message_history = []
 
 def create_standard_rag(
     corpus: List[Dict[str, Any]], 
