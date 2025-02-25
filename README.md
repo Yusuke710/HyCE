@@ -7,12 +7,12 @@ This project implements and evaluates a Retrieval-Augmented Generation (RAG) sys
 The project includes two main components:
 
 1. **HyCE Implementation (`hyce.py`)**:
-   - Core HyCE class-based implementation
+   - Core HyCE class-based implementation. It is just another RAG system with HyDE and execute the command as the corresponding command description is retrieved.
    - Pluggable to any RAG system
    - Includes debug mode
    - Configurable through `config.yaml`
 
-2. **RAG with HyCE (`rag_answer.py`)**:
+2. **RAG with HyCE (`rag.py`)**:
    - Interactive Q&A system using HyCE
    - Supports command execution and web documentation
    - Terminal-based interface
@@ -37,9 +37,10 @@ pip install -r requirements.txt
 │   ├── __init__.py
 │   ├── config.py              # Configuration management
 │   └── llm.py                 # LLM interaction utilities
+│   └── web_scraper.py         # Web scraping utilities  
 ├── hyce.py                    # HyCE implementation
 ├── rag.py                     # Abstract RAG system 
-├── rag_answer.py             # Example RAG system with HyCE 
+├── chatbot.py                 # Example RAG system with HyCE 
 ├── config.yaml                # System configuration
 └── commands.json              # Command definitions
 ```
@@ -48,96 +49,47 @@ pip install -r requirements.txt
 
 **Interactive Q&A:**
 ```bash
-python rag_answer.py
+export OPENAI_API_KEY=bashjdcbjasbcksdnbkcbdskbck
+python chatbot.py
 ```
 
-**Generate Synthetic Test Data:**
-```bash
-python exp/rag_synthetic_data.py
-```
+On first run, the system will:
+1. Scrape documentation from UNSW's Katana HPC documentation
+2. Create embeddings and cache them for future use
+3. Start an interactive Q&A session
 
-**Run Evaluation on the Synthetic Data:**
+**Interactive Commands:**
+- Type your question and press Enter
+- Add `--debug` after your question to see detailed retrieval and processing information
+- Type 'exit' or 'quit' to end the session
+
+**Example Session:**
 ```bash
-python exp/rag_eval.py
+Question: What software does Katana have?
+Answer: Katana provides various software packages including Python, R, and bioscience tools...
+
+Question: How do I check my job status? --debug
+=== Document Retrieval ===
+Document retrieval took: 0.23 seconds
+Found 5 documents...
+[Debug information follows]
+
+Answer: You can check your job status using the 'squeue' command...
 ```
 
 ### Configuration
 
 The system is configured through `config.yaml`:
-```yaml
-system:
-  max_tokens: 4096
-  temperature: 0.7
-  embedding_type: "openai-ada"
 
-# LLM Models
-models:
-  # Default model to use
-  default: gpt-4o-2024-08-06
+**Model Selection:**
 
-  # Available models:
-  gpt-4o-2024-08-06:
-    type: openai
-  claude-3-5-sonnet-20240620:
-    type: anthropic
-  llama3.1-405b:
-    type: openrouter
-  bedrock/anthropic.claude-3-sonnet-20240229-v1:0:
-    type: bedrock
-  vertex_ai/claude-3-opus@20240229:
-    type: vertex_ai
-  deepseek-chat:
-    type: deepseek
-  gemini-1.5-pro:
-    type: gemini
-
-command_retrieval:
-  top_k: 5
-  min_score: -100
-
-reranking:
-  enabled: true
-  top_k: 5
-  min_score: -100
-
-execution:
-  timeout: 30
-  max_output_length: 1000
-
-paths:
-  commands_file: commands.json
-  artifacts_dir: artifacts
-  web_data_file: web_data.json
-
-embeddings:
-  default: "sentence-transformer"
-  openai-ada:
-    model: "text-embedding-ada-002"
-  sentence-transformer:
-    model: "sentence-transformers/all-MiniLM-L6-v2"
-```
-
-To use OpenAI embeddings:
-1. Set `system.embedding_type` to "openai-ada"
-2. Ensure you have OpenAI API access configured
-3. Install requirements: `pip install openai>=1.0.0`
-
-### Model Selection
-
-You can choose which LLM to use in two ways:
-
-1. **Default Model**: Set in `config.yaml`:
-```yaml
-models:
-  default: gpt-4o-2024-08-06  # Change this to your preferred model
-```
-
-2. **Environment Variable**: Override the default model:
-```bash
-export LLM_MODEL=claude-3-5-sonnet-20240620
-python rag_answer.py
-```
-
+1. **Via Config File:**
+   - Set the default model in `config.yaml`:
+   ```yaml
+   models:
+     default: gpt-4o-2024-08-06
+   ```
+  
 Available model types:
 - `openai`: OpenAI models (requires API key)
 - `anthropic`: Anthropic Claude models (requires API key)
@@ -147,7 +99,25 @@ Available model types:
 - `deepseek`: DeepSeek models (requires API key)
 - `gemini`: Google Gemini models (requires API key)
 
-Each model type requires appropriate credentials to be set up.
+**Embedding Options:**
+
+1. **OpenAI Embeddings:**
+   ```yaml
+   system:
+     embedding_type: "openai-ada"
+   ```
+
+2. **Sentence Transformers:**
+   ```yaml
+   system:
+     embedding_type: "sentence-transformer"
+   ```
+
+**Cache Management:**
+- Embeddings are cached in `artifacts/embeddings/`
+- Document data is cached in `artifacts/web_data.json`
+- Delete these files to embed new data
+
 
 ### FAISS compatibility issues with MPS
 
