@@ -95,6 +95,17 @@ Available model types:
 - `anthropic`: Anthropic Claude models (requires API key)
 - `openrouter`: OpenRouter models (requires API key)
 - `bedrock`: AWS Bedrock models (requires AWS credentials)
+##### Claude Models via Bedrock
+
+For Claude models provided by [Amazon Bedrock](https://aws.amazon.com/bedrock/), please install these additional packages:
+
+```bash
+pip install anthropic[bedrock]
+```
+
+Next, specify a set of valid [AWS Credentials](https://docs.aws.amazon.com/cli/v1/userguide/cli-configure-envvars.html) and the target [AWS Region](https://docs.aws.amazon.com/bedrock/latest/userguide/bedrock-regions.html):
+
+Set the environment variables: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION_NAME`.
 - `vertex_ai`: Google Vertex AI models (requires GCP credentials)
 - `deepseek`: DeepSeek models (requires API key)
 - `gemini`: Google Gemini models (requires API key)
