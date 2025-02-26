@@ -2,7 +2,9 @@
 system:
   max_tokens: 4096  # Common max tokens for all models
   temperature: 0.7  # Common temperature for all models
-  embedding_type: "openai-ada" # or "openai-ada"
+  default_model: "gpt-4o-2024-08-06"  # Default LLM model to use
+  default_embedding: "sentence-transformer"  # Default embedding model
+  default_reranker: "cross_encoder"  # Default reranker to use
 
 # HyCE Settings
 hyce:
@@ -17,6 +19,14 @@ hyce:
   execution:
     timeout: 30  # Command execution timeout in seconds
     max_output_length: 1000  # Maximum length of command output
+
+# File Paths
+paths:
+  commands_file: commands.json
+  artifacts_dir: artifacts
+  web_data_file: web_data.json 
+
+# Available Models Configuration
 
 # LLM Models
 models:
@@ -82,25 +92,18 @@ models:
   gemini-1.5-pro:
     type: gemini
 
-  # Default model
-  default: gpt-4o-2024-08-06
-
 # Embedding Models
 embeddings:
-  default: "sentence-transformer"  # or "openai-ada"
   sentence-transformer:
+    type: sentence-transformer
     model: "sentence-transformers/all-MiniLM-L6-v2"
   openai-ada:
+    type: openai
     model: "text-embedding-ada-002"
 
 # Reranker Models
 rerankers:
   cross_encoder:
-    name: cross-encoder/ms-marco-MiniLM-L-12-v2
-  default: cross_encoder
+    type: cross-encoder
+    model: "cross-encoder/ms-marco-MiniLM-L-12-v2"
 
-# File Paths
-paths:
-  commands_file: commands.json
-  artifacts_dir: artifacts
-  web_data_file: web_data.json 

@@ -66,4 +66,34 @@ def get_system_config() -> Dict[str, Any]:
 
 def get_paths_config() -> Dict[str, Any]:
     """Get file paths"""
-    return CONFIG.get('paths', {}) 
+    return CONFIG.get('paths', {})
+
+def get_model_config(model_name):
+    """Get configuration for a specific LLM model"""
+    config = load_config()
+    models = config.get('models', {})
+    
+    if model_name not in models:
+        raise ValueError(f"Model {model_name} not found in config")
+    
+    return models[model_name]
+
+def get_embedding_config(embedding_name):
+    """Get configuration for a specific embedding model"""
+    config = load_config()
+    embeddings = config.get('embeddings', {})
+    
+    if embedding_name not in embeddings:
+        raise ValueError(f"Embedding model {embedding_name} not found in config")
+    
+    return embeddings[embedding_name]
+
+def get_reranker_config(reranker_name):
+    """Get configuration for a specific reranker model"""
+    config = load_config()
+    rerankers = config.get('rerankers', {})
+    
+    if reranker_name not in rerankers:
+        raise ValueError(f"Reranker {reranker_name} not found in config")
+    
+    return rerankers[reranker_name] 
