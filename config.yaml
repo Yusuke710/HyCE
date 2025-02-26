@@ -24,7 +24,8 @@ hyce:
 paths:
   commands_file: commands.json
   artifacts_dir: artifacts
-  web_data_file: web_data.json 
+  web_data_file: web_data.json
+  feedback_file: feedback_data.jsonl
 
 # Available Models Configuration
 

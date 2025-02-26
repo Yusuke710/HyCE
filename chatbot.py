@@ -2,6 +2,8 @@
 
 import os
 import argparse
+import json
+import datetime
 from utils.config import (
     get_paths_config,
     get_system_config,
@@ -44,6 +46,36 @@ def parse_arguments():
     parser.add_argument('-e', '--embedding', help='Specify the embedding model to use')
     parser.add_argument('-r', '--reranker', help='Specify the reranker model to use')
     return parser.parse_args()
+
+def save_feedback(query, retrieved_docs, answer, feedback, paths):
+    """Save user feedback along with query, retrieved docs, and answer."""
+    # Get artifacts directory from paths config
+    feedback_dir = os.path.join(paths.get('artifacts_dir', 'artifacts'))
+    
+    feedback_path = os.path.join(feedback_dir, paths.get('feedback_file', 'feedback_data.jsonl'))
+    
+    # Create feedback entry
+    entry = {
+        "timestamp": datetime.datetime.now().isoformat(),
+        "query": query,
+        "retrieved_docs": retrieved_docs,
+        "answer": answer,
+        "feedback": feedback,
+    }
+    
+    # Append to JSONL file
+    with open(feedback_path, "a") as f:
+        f.write(json.dumps(entry) + "\n")
+    
+    return feedback_path
+
+def get_user_feedback():
+    """Get user feedback (y/n) with validation."""
+    while True:
+        feedback = input("Was this answer helpful? (y/n): ").strip().lower()
+        if feedback in ['y', 'n']:
+            return feedback
+        print("Please enter 'y' for yes or 'n' for no.")
 
 def main():
     # Parse command line arguments
@@ -125,12 +157,60 @@ def main():
         
         # Get answer with chain-of-thought reasoning
         try:
+            # Store the query
+            query = question
+            
+            # First, get the retrieved documents using the RAG's retrieve method
+            retrieved_docs = []
+            try:
+                # Use the RAG's retrieve method directly
+                if hasattr(rag, 'retrieve'):
+                    contexts = rag.retrieve(query, top_k=5, debug=debug_mode)
+                    
+                    # Format the retrieved documents for storage
+                    for ctx in contexts:
+                        doc_entry = {}
+                        
+                        # Extract content based on type
+                        if ctx.get('url') == 'command':
+                            doc_entry['type'] = 'command'
+                            doc_entry['command'] = ctx.get('command', '')
+                            doc_entry['description'] = ctx.get('chunk', '')
+                            if 'command_output' in ctx:
+                                doc_entry['output'] = ctx.get('command_output', '')
+                        else:
+                            doc_entry['type'] = 'document'
+                            doc_entry['content'] = ctx.get('chunk', '')[:500] + "..." if len(ctx.get('chunk', '')) > 500 else ctx.get('chunk', '')
+                            doc_entry['url'] = ctx.get('url', '')
+                        
+                        # Add scores if available
+                        if 'score' in ctx:
+                            doc_entry['score'] = ctx.get('score')
+                        if 'cross_encoder_score' in ctx:
+                            doc_entry['rerank_score'] = ctx.get('cross_encoder_score')
+                        
+                        retrieved_docs.append(doc_entry)
+            except Exception as retrieval_error:
+                if debug_mode:
+                    print(f"Could not retrieve documents: {str(retrieval_error)}")
+            
+            # Get answer
             answer = rag.query(
                 query=question,
                 cot=True,
                 debug=debug_mode
             )
+            
             print("\nAnswer:", answer)
+            
+            # Get user feedback
+            feedback = get_user_feedback()
+            
+            # Save feedback data
+            feedback_path = save_feedback(query, retrieved_docs, answer, feedback, paths)
+            if debug_mode:
+                print(f"Feedback saved to {feedback_path}")
+                
         except Exception as e:
             print(f"\nError: {str(e)}")
 
