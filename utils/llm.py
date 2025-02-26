@@ -289,5 +289,32 @@ def create_client(model_name):
     elif model_type == "anthropic":
         print(f"Using Anthropic API with model {model_name}")
         return anthropic.Anthropic(), model_name
+    elif model_type == "bedrock" and "claude" in model_name:
+        # Extract the actual model name from the full bedrock path
+        client_model = model_name.split("/")[-1]
+        print(f"Using Amazon Bedrock with model {client_model}")
+        return anthropic.AnthropicBedrock(), client_model
+    elif model_type == "vertex_ai" and "claude" in model_name:
+        # Extract the actual model name from the full vertex_ai path
+        client_model = model_name.split("/")[-1]
+        print(f"Using Vertex AI with model {client_model}")
+        return anthropic.AnthropicVertex(), client_model
+    elif model_type == "deepseek":
+        print(f"Using DeepSeek API with model {model_name}")
+        return openai.OpenAI(
+            api_key=os.environ["DEEPSEEK_API_KEY"],
+            base_url="https://api.deepseek.com"
+        ), model_name
+    elif model_type == "openrouter":
+        print(f"Using OpenRouter API with model {model_name}")
+        return openai.OpenAI(
+            api_key=os.environ["OPENROUTER_API_KEY"],
+            base_url="https://openrouter.ai/api/v1"
+        ), model_config.get("model_id", model_name)
+    elif model_type == "gemini":
+        print(f"Using Google Generative AI with model {model_name}")
+        genai.configure(api_key=os.environ["GEMINI_API_KEY"])
+        client = genai.GenerativeModel(model_name)
+        return client, model_name
     else:
         raise ValueError(f"Model type {model_type} not supported")
