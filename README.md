@@ -50,7 +50,7 @@ pip install -r requirements.txt
 **Interactive Q&A:**
 ```bash
 export OPENAI_API_KEY=bashjdcbjasbcksdnbkcbdskbck
-python chatbot.py
+python chatbot.py -u <username>
 ```
 
 On first run, the system will:
@@ -60,6 +60,7 @@ On first run, the system will:
 
 **Interactive Commands:**
 - Type your question and press Enter
+- Add `-u <username>` after your question to specify the user to run the command as
 - Add `--debug` after your question to see detailed retrieval and processing information
 - Type 'exit' or 'quit' to end the session
 
